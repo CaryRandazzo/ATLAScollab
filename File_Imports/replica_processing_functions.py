@@ -101,7 +101,7 @@ def create_dbs_from_expresspmain(data_path):
 
     # Determine if express_db_df exists, initialize or append to the database accordingly
     if 'express_db_df.csv' in os.listdir(record_path):
-        express_db_df = pd.read_csv(record_path +'express_db_df.csv',,index_col=[0])
+        express_db_df = pd.read_csv(record_path +'express_db_df.csv',index_col=[0])
     else:
         express_db_df = pd.DataFrame()
 
