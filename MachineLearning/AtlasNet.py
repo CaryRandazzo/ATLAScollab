@@ -1,6 +1,6 @@
-#########
-#IMPORTS#
-#########
+###########
+# IMPORTS #
+###########
 
 import os
 import numpy as np
@@ -22,9 +22,14 @@ import cv2
 from skimage import io, color
 from tensorflow.keras.optimizers import RMSprop
 
+# Attempt3 imports
+import tensorflow.compat.v1.keras.backend as K
+#import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 
-##############
-##############
+###########################
+# LOAD AND TRANSFORM DATA #
+###########################
 
 # Open the file that train_set is stored in as f
 with open('train_set.npy', 'rb') as f:
@@ -71,9 +76,9 @@ Y2 = Y2[:,:65,:99,:]
 #Y2.shape
 
 
-########################
-#MODEL OPTIONS: 1-vgg16#
-########################
+##########################
+# MODEL OPTIONS: 1-vgg16 #
+##########################
 
 # For model input ?
 model6 = VGG16(weights='imagenet', include_top=False, input_shape=(65,99,3))
@@ -166,9 +171,13 @@ model.compile(loss='mape', optimizer = adam_optimizer(), metrics=['accuracy'])
 model.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
 
 
-###############################
-#MODEL OPTIONS: 2-simple vgg16#
-###############################
+#################################
+# MODEL OPTIONS: 2-simple vgg16 #
+#################################
+
+
+"""
+
 
 # Constructing a simple tensorflow/keras CNN:
 
@@ -206,9 +215,15 @@ model.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metric
 # Fit the model
 model.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
 
-################
-#POST MODELLING# 
-################
+
+
+"""
+
+
+
+##################
+# POST MODELLING # 
+##################
 
 def make_predictions(X,X2):
   
@@ -231,16 +246,92 @@ def make_predictions(X,X2):
 # transfer = cv2.cvtColor(transfer.astype('uint8'), cv2.COLOR_LAB2BGR)
 
 ###############################
-#MODEL OPTIONS: 2-simple vgg16#
+# MODEL OPTIONS: 3            #
 ###############################
 
+"""
 
 
-##################
-#MODEL EVALUATION#
-##################
 
-def eval_with_test(model):
+#add the two 0 channels
+X = np.append(X,np.zeros((20,65,99,1)),axis=3)
+X = np.append(X,np.zeros((20,65,99,1)),axis=3)
+#X.shape
+
+#add the two 0 channels
+Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
+Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
+#Y.shape
+
+#add the two 0 channels
+X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
+X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
+#X2.shape
+
+#add the two 0 channels
+Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
+Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
+#Y2.shape
+
+X = X[:,:64,:98,:]
+Y = Y[:,:64,:98,:]
+X2 = X2[:,:64,:98,:]
+Y2 = Y2[:,:64,:98,:]
+
+# from tensorflow.keras.optimizers import RMSprop
+# def adam_optimizer():
+#     return Adam(lr = 0.001, beta_1=0.99, beta_2=0.999)
+# model.compile(loss='mape', optimizer = adam_optimizer(), metrics=['accuracy'])
+model.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metrics=['accuracy'])
+# model.compile(loss='binary_crossentropy', optimizer = adam_optimizer(), metrics=['accuracy'])
+model.fit(x=X[:,:,:,0:1], y=Y[:,:,:,0:1],validation_data=(X2[:,:,:,0:1],Y2[:,:,:,0:1]),batch_size=2, epochs=5)
+#model.summary()
+
+
+features = model.predict(X[:,:,:,0:1]) #train_pred
+# test_pred - model.predict(X2)
+
+
+
+# vgg_conv = VGG16(weights='imagenet', include_top=False, input_shape=(64, 98, 3))
+# for layer in vgg_conv.layers:
+#      layer.trainable = False
+# vgg_conv.summary()
+
+# last_layer = vgg_conv.get_layer('block2_conv2')
+# last_output = last_layer.output
+
+# x = layers.InputLayer(input_shape=(X.shape[1],X.shape[2],1))(last_output[:,:,:,0:1])
+# x = layers.UpSampling2D()(x)
+# x = layers.Dense(units=1,activation='sigmoid')(x)
+# model = Model(inputs=vgg_conv.input, outputs=x)
+
+# model.summary()
+model = Sequential()
+model.add(Input(shape=(64,98,1,)))
+# model.add(InputLayer(input_shape=(X.shape[1],X.shape[2],1)))
+model.add(DepthwiseConv2D(64,(2,2), activation='tanh', padding='same'))
+model.add(layers.ReLU(0.2))
+model.add(Dropout(0.2))
+model.add(UpSampling2D())
+# model.add(UpSampling2D())
+# model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
+# model.add(layers.ReLU(0.2))
+# model.add(Dropout(0.2))
+# model.add(UpSampling2D())
+model.add(Dense(units=1,activation='sigmoid'))
+
+
+
+"""
+
+
+
+####################
+# MODEL EVALUATION #
+####################
+
+def eval_with_randomtest(model):
   # Initialize the matrix
   Xtest = np.zeros((1,65,99))
 
