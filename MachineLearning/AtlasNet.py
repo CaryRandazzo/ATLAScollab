@@ -2,6 +2,7 @@
 # IMPORTS #
 ###########
 
+
 import os
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ from tensorflow.keras.optimizers import RMSprop
 import tensorflow.compat.v1.keras.backend as K
 #import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
+
 
 ###########################
 # LOAD AND TRANSFORM DATA #
@@ -80,84 +82,88 @@ Y2 = Y2[:,:65,:99,:]
 # MODEL OPTIONS: 1-vgg16 #
 ##########################
 
-# For model input ?
-model6 = VGG16(weights='imagenet', include_top=False, input_shape=(65,99,3))
 
-# Sequential model constructor initialization
-model = Sequential()
+def build_model1():
+    # For model input ?
+    model6 = VGG16(weights='imagenet', include_top=False, input_shape=(65,99,3))
 
-# This is simply defining the input layer and its shape
-model.add(InputLayer(input_shape=(X.shape[1], X.shape[2], 1)))
+    # Sequential model constructor initialization
+    model = Sequential()
 
-# A dense layer of 3 neurons, 1 unit for each input (each channel in this case..or each 64x96 matrix) ...need to use 3 because VGG16 requires 3 input channels..this is a main problem
-model.add(layers.Dense(units=3))
+    # This is simply defining the input layer and its shape
+    model.add(InputLayer(input_shape=(X.shape[1], X.shape[2], 1)))
 
-# The inputs are coming from models or the VGG16 pretrained model, we do not want this
-model.add(Model(inputs=model6.inputs, outputs=model6.layers[-10].output))
+    # A dense layer of 3 neurons, 1 unit for each input (each channel in this case..or each 64x96 matrix) ...need to use 3 because VGG16 requires 3 input channels..this is a main problem
+    model.add(layers.Dense(units=3))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # The inputs are coming from models or the VGG16 pretrained model, we do not want this
+    model.add(Model(inputs=model6.inputs, outputs=model6.layers[-10].output))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
-# convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
-# up/down of the input such that output has the same height/width dimension as the input. 
-model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
+    # convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
+    # up/down of the input such that output has the same height/width dimension as the input. 
+    model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
 
-# Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
-# convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
-# up/down of the input such that output has the same height/width dimension as the input. 
-# The convolution operates by - splitting the input to individual channels, convolve each input with the layer's kernel/filter(called depthwise kernel), and stack convolved outputs together
-# along the channel's axis ..unlike regular 2d convolution, does not mix information across different outputs
-model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Passing information from the convolution that gets converted to 0 until it reaches some minimum value, then becomes that value (is this correct?)
-model.add(layers.ReLU(0.3))
+    # Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
+    # convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
+    # up/down of the input such that output has the same height/width dimension as the input. 
+    # The convolution operates by - splitting the input to individual channels, convolve each input with the layer's kernel/filter(called depthwise kernel), and stack convolved outputs together
+    # along the channel's axis ..unlike regular 2d convolution, does not mix information across different outputs
+    model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
 
-# Drops some neurons out to assist in overfitting (correct?)
-model.add(layers.Dropout(0.4))
+    # Passing information from the convolution that gets converted to 0 until it reaches some minimum value, then becomes that value (is this correct?)
+    model.add(layers.ReLU(0.3))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # Drops some neurons out to assist in overfitting (correct?)
+    model.add(layers.Dropout(0.4))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
-# convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
-# up/down of the input such that output has the same height/width dimension as the input. 
-model.add(DepthwiseConv2D(2,(2,2), activation='tanh', padding='same'))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Activation function that cutsoff values at 0.3?
-model.add(layers.ReLU(0.3))
+    # Specifies 2d depthwise convolution of inputs whose kernel size is 32x32, strides is (2,2) for each movement of kernel/filter, the input gets passed through a tanh filter before 
+    # convolution (values come through as -1 to 1), and the padding as 'same'  results in padding with zeros evenly to the left/right or
+    # up/down of the input such that output has the same height/width dimension as the input. 
+    model.add(DepthwiseConv2D(2,(2,2), activation='tanh', padding='same'))
 
-# Layer to prevent overfitting, drops some neurons
-model.add(layers.Dropout(0.2))
+    # Activation function that cutsoff values at 0.3?
+    model.add(layers.ReLU(0.3))
 
-# Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
-model.add(UpSampling2D(size=(2,2)))
+    # Layer to prevent overfitting, drops some neurons
+    model.add(layers.Dropout(0.2))
 
-# Another value filter
-model.add(layers.ReLU(0.3))
+    # Adds repeating rows/columns in the input to this layer. Rows/column repeats are determined by the size parameter
+    model.add(UpSampling2D(size=(2,2)))
 
-# Another overfitting balancer
-model.add(layers.Dropout(0.2))
+    # Another value filter
+    model.add(layers.ReLU(0.3))
 
-# ?
-model.add(AveragePooling2D(pool_size = (2,2)))
+    # Another overfitting balancer
+    model.add(layers.Dropout(0.2))
 
-# passes the previous input to 2 neurons in this new hidden layer (This is the output layer..the output is 2 neurons of information)
-model.add(layers.Dense(units=2))
+    # ?
+    model.add(AveragePooling2D(pool_size = (2,2)))
 
-# Get a summary of the model
-print(model.summary())
+    # passes the previous input to 2 neurons in this new hidden layer (This is the output layer..the output is 2 neurons of information)
+    model.add(layers.Dense(units=2))
 
-# This will need to be optimized...
+    # Get a summary of the model
+    print(model.summary())
+
+    # This will need to be optimized...
+    
+    return model1
 
 
 # Construct optimizer for the model
@@ -165,10 +171,10 @@ def adam_optimizer():
     return Adam(lr = 0.001, beta_1=0.99, beta_2=0.999)
   
 # Configure and compile the model
-model.compile(loss='mape', optimizer = adam_optimizer(), metrics=['accuracy'])
+model1.compile(loss='mape', optimizer = adam_optimizer(), metrics=['accuracy'])
 
 # Fit the model
-model.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
+model1.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
 
 
 #################################
@@ -176,61 +182,57 @@ model.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
 #################################
 
 
-"""
-
-
 # Constructing a simple tensorflow/keras CNN:
 
+def build_model2(vgg_weights_filepath):
 
-# For model input ?
-vgg_model = VGG16(weights=None, include_top=False, input_shape=(64,96,3))
+    # For model input ?
+    model2 = VGG16(weights=None, include_top=False, input_shape=(64,96,3))
 
-
-weights_file='../../Machine Learning/Data/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
-
-
-vgg_model.load_weights(weights_file)
-
-for layer in vgg_model.layers:
-     layer.trainable = False
-
-#vgg_model.summary()
-
-last_layer = vgg_model.get_layer('block5_pool')
-last_output = last_layer.output
+    # Example: '../../Machine Learning/Data/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
+    weights_file=vgg_weights_filepath
 
 
-x = layers.Flatten()(last_output)
-x = layers.Dense(1024, activation='relu')(x)
-x = layers.Dropout(0.2)(x)                  
-x = layers.Dense(1, activation='sigmoid')(x)           
+    model2.load_weights(weights_file)
 
-vgg_model = Model(vgg_model.input, x) 
+    for layer in model2.layers:
+         layer.trainable = False
 
-#vgg_model.summary()
+    #vgg_model.summary()
+
+    last_layer = model2.get_layer('block5_pool')
+    last_output = last_layer.output
+
+
+    x = layers.Flatten()(last_output)
+    x = layers.Dense(1024, activation='relu')(x)
+    x = layers.Dropout(0.2)(x)                  
+    x = layers.Dense(1, activation='sigmoid')(x)           
+
+    model2 = Model(model2.input, x) 
+
+    #vgg_model.summary()
+    
+    return model2 
 
 # Configure and compile the model
-model.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metrics=['accuracy'])
+#model2.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metrics=['accuracy'])
 
 # Fit the model
-model.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
-
-
-
-"""
-
+#model2.fit(x=X, y=Y,validation_data=(X2,Y2),batch_size=10, epochs=11)
 
 
 ##################
 # POST MODELLING # 
 ##################
 
+
 def make_predictions(X,X2):
   
   train_pred = model.predict(X)
   test_pred = model.predict(X2)
   
-  return train_pred,test_pred
+  return train_pred, test_pred
 
 # This rescales the data in train_pred, whose minimum and maximum are (train_pred.min(),train_pred.max()) to a scale whose min and max are (0,255)
 # check_train=np.interp(train_pred, (train_pred.min(), train_pred.max()), (0,255))
@@ -245,86 +247,96 @@ def make_predictions(X,X2):
 # transfer = cv2.merge([l_channel, a_channel, b_channel])
 # transfer = cv2.cvtColor(transfer.astype('uint8'), cv2.COLOR_LAB2BGR)
 
+
 ###############################
 # MODEL OPTIONS: 3            #
 ###############################
 
-"""
 
+def prep_model3data(X,X2,Y,Y2):
+    """
+    This dataprep function uses as input, the X,X2,etc from model1
+    """
 
+    #add the two 0 channels
+    X = np.append(X,np.zeros((20,65,99,1)),axis=3)
+    X = np.append(X,np.zeros((20,65,99,1)),axis=3)
+    #X.shape
 
-#add the two 0 channels
-X = np.append(X,np.zeros((20,65,99,1)),axis=3)
-X = np.append(X,np.zeros((20,65,99,1)),axis=3)
-#X.shape
+    #add the two 0 channels
+    Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
+    Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
+    #Y.shape
 
-#add the two 0 channels
-Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
-Y = np.append(Y,np.zeros((20,65,99,1)),axis=3)
-#Y.shape
+    #add the two 0 channels
+    X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
+    X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
+    #X2.shape
 
-#add the two 0 channels
-X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
-X2 = np.append(X2,np.zeros((8,65,99,1)),axis=3)
-#X2.shape
+    #add the two 0 channels
+    Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
+    Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
+    #Y2.shape
 
-#add the two 0 channels
-Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
-Y2 = np.append(Y2,np.zeros((8,65,99,1)),axis=3)
-#Y2.shape
+    X = X[:,:64,:98,:]
+    Y = Y[:,:64,:98,:]
+    X2 = X2[:,:64,:98,:]
+    Y2 = Y2[:,:64,:98,:]
+    
+    return X, X2, Y, Y2
 
-X = X[:,:64,:98,:]
-Y = Y[:,:64,:98,:]
-X2 = X2[:,:64,:98,:]
-Y2 = Y2[:,:64,:98,:]
+def build_model3():
+    # vgg_conv = VGG16(weights='imagenet', include_top=False, input_shape=(64, 98, 3))
+    # for layer in vgg_conv.layers:
+    #      layer.trainable = False
+    # vgg_conv.summary()
 
+    # last_layer = vgg_conv.get_layer('block2_conv2')
+    # last_output = last_layer.output
+
+    # x = layers.InputLayer(input_shape=(X.shape[1],X.shape[2],1))(last_output[:,:,:,0:1])
+    # x = layers.UpSampling2D()(x)
+    # x = layers.Dense(units=1,activation='sigmoid')(x)
+    # model = Model(inputs=vgg_conv.input, outputs=x)
+
+    # model.summary()
+    model3 = Sequential()
+    model3.add(Input(shape=(64,98,1,)))
+    # model.add(InputLayer(input_shape=(X.shape[1],X.shape[2],1)))
+    model3.add(DepthwiseConv2D(64,(2,2), activation='tanh', padding='same'))
+    model3.add(layers.ReLU(0.2))
+    model3.add(Dropout(0.2))
+    model3.add(UpSampling2D())
+    # model3.add(UpSampling2D())
+    # model3.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
+    # model3.add(layers.ReLU(0.2))
+    # model3.add(Dropout(0.2))
+    # model3.add(UpSampling2D())
+    model3.add(Dense(units=1,activation='sigmoid'))
+    
+    return model3
+
+    
+    
 # from tensorflow.keras.optimizers import RMSprop
 # def adam_optimizer():
 #     return Adam(lr = 0.001, beta_1=0.99, beta_2=0.999)
 # model.compile(loss='mape', optimizer = adam_optimizer(), metrics=['accuracy'])
-model.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metrics=['accuracy'])
+
+
+## model.compile(loss='binary_crossentropy', optimizer = RMSprop(lr=0.0001), metrics=['accuracy'])
+
+
 # model.compile(loss='binary_crossentropy', optimizer = adam_optimizer(), metrics=['accuracy'])
-model.fit(x=X[:,:,:,0:1], y=Y[:,:,:,0:1],validation_data=(X2[:,:,:,0:1],Y2[:,:,:,0:1]),batch_size=2, epochs=5)
+
+
+## model.fit(x=X[:,:,:,0:1], y=Y[:,:,:,0:1],validation_data=(X2[:,:,:,0:1],Y2[:,:,:,0:1]),batch_size=2, epochs=5)
+
+
 #model.summary()
 
-
-features = model.predict(X[:,:,:,0:1]) #train_pred
+# features = model.predict(X[:,:,:,0:1]) #train_pred
 # test_pred - model.predict(X2)
-
-
-
-# vgg_conv = VGG16(weights='imagenet', include_top=False, input_shape=(64, 98, 3))
-# for layer in vgg_conv.layers:
-#      layer.trainable = False
-# vgg_conv.summary()
-
-# last_layer = vgg_conv.get_layer('block2_conv2')
-# last_output = last_layer.output
-
-# x = layers.InputLayer(input_shape=(X.shape[1],X.shape[2],1))(last_output[:,:,:,0:1])
-# x = layers.UpSampling2D()(x)
-# x = layers.Dense(units=1,activation='sigmoid')(x)
-# model = Model(inputs=vgg_conv.input, outputs=x)
-
-# model.summary()
-model = Sequential()
-model.add(Input(shape=(64,98,1,)))
-# model.add(InputLayer(input_shape=(X.shape[1],X.shape[2],1)))
-model.add(DepthwiseConv2D(64,(2,2), activation='tanh', padding='same'))
-model.add(layers.ReLU(0.2))
-model.add(Dropout(0.2))
-model.add(UpSampling2D())
-# model.add(UpSampling2D())
-# model.add(DepthwiseConv2D(32,(2,2), activation='tanh', padding='same'))
-# model.add(layers.ReLU(0.2))
-# model.add(Dropout(0.2))
-# model.add(UpSampling2D())
-model.add(Dense(units=1,activation='sigmoid'))
-
-
-
-"""
-
 
 
 ####################
