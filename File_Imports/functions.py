@@ -1,10 +1,18 @@
 # functions.py
-import ROOT
-import pandas as pd
+
+
+###########
+# IMPORTS #
+###########
+
+
+from default_imports import *
+
 
 ######################
 #PROCESSING FUNCTIONS#
 ######################
+
 
 #PREPROCESS THE HIST TO A DATAFRAME
 def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):  
@@ -147,6 +155,7 @@ def select_add_hist(df,choice):
 #MACHINE LEARNING FUNCTIONS#
 ############################
 
+
 #UNSUPERVISED LEARNING
 def train_ae(df):
     
@@ -197,6 +206,12 @@ def train_ae(df):
     plt.xlabel('eta')
     plt.ylabel('occupancy')
     plt.show()
+
+    
+###########################
+# VISUALIZATION FUNCTIONS #
+###########################
+
     
 def display_hists_in_dataset(df):
     
