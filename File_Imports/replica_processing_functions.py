@@ -762,3 +762,92 @@ def build_qualityvals_for_hist20s(hist_idx,txt_file_pth,hist20_as_db):
     pMain_hist20.to_csv(record_path+'pMain_hist20.csv')
 
     print("Complete.")
+
+    
+#################### 8-6-21 ####################################
+# CONSTRUCTING THE DATABASE OF DEFECTLESS/DEFECTFUL HISTOGRAMS #
+################################################################
+
+def read_process_hist_paths_file(db_df,txt_file_path):
+    """
+    
+    DESCRIPTION:
+        This function converts a database_dataframe(db_df) to a subset output(df) whole internal dataframes are determined by the histogram paths found in the txt_file_path file.
+        
+    IMPORTANT NOTE FOR UPDATE TO THIS FUNCTION:
+        It would probably be faster to iterate through the list of folders containing the .csvs for the runs and yank what I want out of it instead of searching thorugh the whole db.
+        On the other hand, I could use it as an excuse to use a mysql or something style database
+        USE A SQLITE DATABASE - like 40x faster
+    
+    
+    INPUTS:
+        db_df - set this as the database of run/stream/ftag files whose histograms have all been concatenated together (example: express_db_df) 
+        txt_file_path - the path of the file that contains the list of strings who are each paths to the histogram of interest
+        
+    OUTPUTS:
+        dataframe - hists_to_train
+    
+    EXAMPLE USE:
+        read_process_hist_paths_file(pMain_db_df,'pMain_good_hists.txt')
+        
+    EXAMPLE LINE IN txt_file_path:
+        run_348251/CaloMonitoring/CaloMonExpert/CaloCalTopoCluster/ClustersForExpert/2dOccupancy/m_clus_etaphi_Et_thresh1
+
+    """
+    
+    # Clean the tmp variables before starting
+    try:
+        del df
+    except:
+        pass
+    try:
+        del tmp
+    except:
+        pass
+    
+    
+    # Open the file for getting the length of lines in the txt_file_path file
+    with open(txt_file_path,'r') as f:
+        array_ = f.readlines()
+    
+    with open(txt_file_path,'r') as f:
+        # Read through each line
+        for idL,line in enumerate(f.readlines()):
+
+            # Display progress bar
+            progress_bar(idL,array_)
+            
+            line = line.split('/')
+            
+            # Get the dataframe subset identified by the path stored in the line variable
+            print('getting subset for line[0](~25seconds')...)
+            tmp = db_df[db_df['paths'].str.contains(line[0])]
+            print('getting subset for line[3]...')
+            tmp = tmp[tmp['paths'].str.contains(line[3])]
+            print('getting subset for line[-1]...')
+            tmp = tmp[tmp['paths'].str.contains(line[-1].replace('\n',''))]
+            
+            try:
+                
+                # If tmp and tmp2 exist, hook them together
+                print('concatenating df with tmp...')
+                df = pd.concat([df,tmp])
+                
+            except:
+                
+                # If tmp doesn't exist, make it the subset that was set as tmp2 until the next iteration
+                df = tmp
+                
+        # Post calculation cleanup
+        try:
+            del array_
+            del tmp
+            del line
+        except:
+            pass
+        
+        status_update_msg('Complete.')
+        
+    
+    # All the histograms are selected from the txt_file_path file and combined into tmp
+    return df # hists_to_train
