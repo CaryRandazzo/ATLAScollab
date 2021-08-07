@@ -768,20 +768,19 @@ def build_qualityvals_for_hist20s(hist_idx,txt_file_pth,hist20_as_db):
 # CONSTRUCTING THE DATABASE OF DEFECTLESS/DEFECTFUL HISTOGRAMS #
 ################################################################
 
-def read_process_hist_paths_file(db_df,txt_file_path):
+def read_process_hist_paths_file(db_df,df,txt_file_path):
     """
     
     DESCRIPTION:
         This function converts a database_dataframe(db_df) to a subset output(df) whole internal dataframes are determined by the histogram paths found in the txt_file_path file.
         
-    IMPORTANT NOTE FOR UPDATE TO THIS FUNCTION:
-        It would probably be faster to iterate through the list of folders containing the .csvs for the runs and yank what I want out of it instead of searching thorugh the whole db.
-        On the other hand, I could use it as an excuse to use a mysql or something style database
-        USE A SQLITE DATABASE - like 40x faster
-    
+    IMPORTANT NOTE FOR UPDATE TO THIS FUNCTION:        
+        USE A SQLITE DATABASE instead of large dataframes containing multiple subsets of run_numbers - increase speed by approx 40x faster(although its already kind of quick) 
     
     INPUTS:
         db_df - set this as the database of run/stream/ftag files whose histograms have all been concatenated together (example: express_db_df) 
+        df - set this as the database of histograms that has already been processed by this function
+            If there is no already constructed histogram, set this to an empty dataframe: pd.DataFrame({})  
         txt_file_path - the path of the file that contains the list of strings who are each paths to the histogram of interest
         
     OUTPUTS:
@@ -795,50 +794,30 @@ def read_process_hist_paths_file(db_df,txt_file_path):
 
     """
     
-    # Clean the tmp variables before starting
-    try:
-        del df
-    except:
-        pass
-    try:
-        del tmp
-    except:
-        pass
-    
-    
     # Open the file for getting the length of lines in the txt_file_path file
     with open(txt_file_path,'r') as f:
         array_ = f.readlines()
     
+    # Open the file that contains the histogram paths of interest on each line
     with open(txt_file_path,'r') as f:
-        # Read through each line
+        
+        # Read through each line to get a path as line
         for idL,line in enumerate(f.readlines()):
-
+            
             # Display progress bar
             progress_bar(idL,array_)
             
-            line = line.split('/')
+            # Get the dataframe subset identified by the path stored in the line variable            
+            tmp = db_df[db_df['paths']==line.replace('\n','')]
             
-            # Get the dataframe subset identified by the path stored in the line variable
-            print('getting subset for line[0](~25seconds')...)
-            tmp = db_df[db_df['paths'].str.contains(line[0])]
-            print('getting subset for line[3]...')
-            tmp = tmp[tmp['paths'].str.contains(line[3])]
-            print('getting subset for line[-1]...')
-            tmp = tmp[tmp['paths'].str.contains(line[-1].replace('\n',''))]
-            
-            try:
-                
-                # If tmp and tmp2 exist, hook them together
-                print('concatenating df with tmp...')
-                df = pd.concat([df,tmp])
-                
-            except:
-                
-                # If tmp doesn't exist, make it the subset that was set as tmp2 until the next iteration
+            try:              
+                # If df and tmp exist, hook them together
+                df = pd.concat([df,tmp])                
+            except:                
+                # If df doesn't exist, make it the subset that was set as tmp until the next iteration
                 df = tmp
                 
-        # Post calculation cleanup
+        # Cleanup the variables
         try:
             del array_
             del tmp
@@ -846,8 +825,9 @@ def read_process_hist_paths_file(db_df,txt_file_path):
         except:
             pass
         
+        # Notify the user that the function has completed its process
         status_update_msg('Complete.')
         
     
-    # All the histograms are selected from the txt_file_path file and combined into tmp
+    # All the histograms are selected from the txt_file_path file and combined into df
     return df # hists_to_train
