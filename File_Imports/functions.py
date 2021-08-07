@@ -214,7 +214,8 @@ def display_hists_in_dataset(df):
     
     for path in df['paths'].unique():
         tmp = df[df['paths']==path]
-        sns.heatmap(tmp.pivot(index='y',columns='x',values='occ'))
+        ax = sns.heatmap(tmp.pivot(index='y',columns='x',values='occ'))
+        ax.invert_yaxis()
         plt.title( f" { path.split('/')[0] } , { path.split('/')[-1] } [Occupancies]" )
         plt.xlabel(r'$\eta$')
         plt.ylabel(r'$\phi$')
