@@ -198,26 +198,41 @@ def train_ae(df):
     plt.ylabel('occupancy')
     plt.show()
     
-    
 def display_hists_in_dataset(df):
     
     """
     
     Displays histograms in a dataframe that contains multiple subsets based on a path feature.
-    
-    EXAMPLE USE:
-    Use the database of dataframes called express_hists_totrain.csv ; This is constructed from the function read_process_hist_paths_file(express_db_df,txt_file_path)
-    
-    display_hists_in_dataset(express_hists_totrain)
 
+    EXAMPLE USE:
+        Use the database of dataframes called express_hists_totrain.csv ; This is constructed from the function read_process_hist_paths_file(express_db_df,txt_file_path)
+    
+        display_hists_in_dataset(express_hists_totrain)
+    
     """
     
-    for path in df['paths'].unique():
+    # Loop through the paths available in the database of histograms
+    for idP,path in enumerate(df['paths'].unique()):
+        
+        # get a handle for the histogram at this iteration
         tmp = df[df['paths']==path]
+        
+        # Prepare the heatmap and piivot table for the plot
         ax = sns.heatmap(tmp.pivot(index='y',columns='x',values='occ'))
+        
+        # Invert the yaxis on the plot so it is ascending upward
         ax.invert_yaxis()
-        plt.title( f" { path.split('/')[0] } , { path.split('/')[-1] } [Occupancies]" )
+        
+        # Set the information on the histogram for title and labels
+        plt.title( f"#{idP} { path.split('/')[0] } , { path.split('/')[-1] } [Occupancies]" )
         plt.xlabel(r'$\eta$')
         plt.ylabel(r'$\phi$')
+        
+        # Show the histogram that has been constructed at this iteration
         plt.show()
+        
+    # Cleanup variables after processing this function
     del tmp
+    del ax
+    del idP
+    del path
