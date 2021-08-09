@@ -371,7 +371,8 @@ def transform_hitstring(line):
     
     hit_number = line.replace(line[0],'').split('-',1)[0]
     
-    occ_val = int(line.split(':')[1].replace('\t','').split('.')[0])
+    # Do not make this an int, there are float values of occupany present in histograms!
+    occ_val = line.split(':')[1].replace('\t','').split('.')[0]
     
     # Begin the process of extracting the x_hitcoord and y_hitcoord from line
     line = line.replace(color_identifier_string+hit_number+'-'+'(eta,phi)[OSRatio]=','')
@@ -574,11 +575,15 @@ def add_specific_qualityvals_to_hist20s(hist_index,quality_val_txtfile):
 
     # Convert float columns to integers - needed to do this for the big database as well...
     express_hist20['y'] = [int(a) for a in express_hist20['y'].values]
-    express_hist20['occ'] = [int(a) for a in express_hist20['occ'].values]
+    
+    # Do not convert float values to int, there are float values for occupancy in histograms!
+    #express_hist20['occ'] = [int(a) for a in express_hist20['occ'].values]
 
     # Convert float columns to integers - needed to do this for the big database as well...
     pMain_hist20['y'] = [int(a) for a in pMain_hist20['y'].values]
-    pMain_hist20['occ'] = [int(a) for a in pMain_hist20['occ'].values]
+    
+    # Do not convert float values to int, there are float values for occupancy in histograms!
+#     pMain_hist20['occ'] = [int(a) for a in pMain_hist20['occ'].values]
 
 
     # Create the target value for the histogram(s) of interest based on hist index(unique histogram number from a list_of_hists such as pMain_hist20)
