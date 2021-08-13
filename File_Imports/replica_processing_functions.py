@@ -56,27 +56,40 @@ def prepeach_expresspmain_df(replica_folders_path):
     
 
 
-def construct_dfs_by_runstream(df_express_list,df_pMain_list):
+def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_path,pMain_output_path):
+    """
+    
+    Creates .csv files from a list of express dataframes and a list of pMain dataframes. Sends the .csv's to the output_path location.
+    
+    EXAMPLE USE:
+        express_output_path = '../unprocessed_dfs_express2/'
+        pMain_output_path = '../unprocessed_dfs_pMain2/'
+        
+    """
 
     # Loop through the pMain dataframe list 
     for idN,df in enumerate(df_express_list):
+        
+        progress_bar(idN,df_express_list)
 
         #Construct the run string from the list of express dataframes
         run_string = df['paths'].values[0].split('/')[0]
 
         # Send the processed pMain df.csv to the appropriate folder with the appropriate name
         # MODIFY OUTPUT LOCATION AS NEEDED
-        df.to_csv('../unprocessed_dfs_express/express_data_files_'+run_string+'.csv')
+        df.to_csv(output_path+'express_dfs_'+run_string+'.csv')
 
     # Loop through the pMain dataframe list
     for idN,df in enumerate(df_pMain_list):
+        
+        progress_bar(idN,df_pMain_list)
 
         #Construct the run string from the list of pMain dataframes
         run_string = df['paths'].values[0].split('/')[0]
 
         # Send the processed pMain df.csv to the appropriate folder with the appropriate name
         # MODIFY OUTPUT LOCATION AS NEEDED
-        df.to_csv('../unprocessed_dfs_pMain/pMain_data_files_'+run_string+'.csv')
+        df.to_csv(pMain_output_path+'pMain_dfs_'+run_string+'.csv')
 
     # Free up the memory
     del df_express_list
