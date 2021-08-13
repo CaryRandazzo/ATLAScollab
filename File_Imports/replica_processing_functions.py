@@ -98,36 +98,41 @@ def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_pat
     
     
     
-def create_dbs_from_expresspmain(data_path):
+def create_dbs_from_expresspmain(express_data_path,pMain_data_path):
 
-    """
-    data_path: Get a handle for the location of the express csv files
     """
     
-    status_update_msg("Initializing Processing for express...")
+    IMPORTANT - OLD CODE - use build_sql_database() instead.
+    
+    data_path: Get a handle for the location of the express csv files
+    
+    EXAMPLE USE:
+        express_data_path = '../unprocessed_dfs_express2/'
+        pMain_data_path = '../unprocessed_dfs_pMain2/'
 
+    
+    """
+    
+    status_update_msg("Initializing Processing for express...")    
 
-    # Get a handle for the location of the express csv files
-    # EXAMPLE: data_path = '../unprocessed_dfs_express/'
-    #data_path = input("What is the location of the express csv files that were processed? data_path=")
-
-
+    
     # Determine if express_db_df exists, initialize or append to the database accordingly
-    if 'express_db_df.csv' in os.listdir(record_path):
-        express_db_df = pd.read_csv(record_path +'express_db_df.csv',index_col=[0])
+    if 'express_db_df2.csv' in os.listdir(record_path):
+        express_db_df2 = pd.read_csv(record_path +'express_db_df2.csv',index_col=[0])
     else:
-        express_db_df = pd.DataFrame()
+        express_db_df2 = pd.DataFrame()
 
 
     # Loop through the files in the data_path, process them, and append them    
-    for idF,express_file in enumerate(os.listdir(data_path)):
+    
+    for idF,express_file in enumerate(os.listdir(express_data_path)):
 
         # Progress Bar
-        progress_bar(idF,os.listdir(data_path))
+        progress_bar(idF,os.listdir(express_data_path))
 
         # Processing dataframe and compiling dataframe_database
-        df = pd.read_csv(data_path+express_file,index_col=[0])
-        express_db_df = pd.concat([express_db_df,df])
+        df = pd.read_csv(express_data_path+express_file,index_col=[0])
+        express_db_df2 = pd.concat([express_db_df2,df])
 
 
     # Free up memeory from this file
@@ -136,58 +141,54 @@ def create_dbs_from_expresspmain(data_path):
 
     # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
     status_update_msg("Converting express path column to category datatype...")
-    express_db_df['paths'] = express_db_df['paths'].astype('category')
+    express_db_df2['paths'] = express_db_df2['paths'].astype('category')
 
 
     # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
-    status_update_msg("Saving express_db_df datafarme to csv(this could take several minutes+)...")
-    express_db_df.to_csv('express_db_df.csv')
+    status_update_msg("Saving express_db_df2 datafarme to csv(this could take several minutes+)...")
+    express_db_df2.to_csv('express_db_df2.csv')
     del df
-    del express_db_df
+    del express_db_df2
 
 
     # Notify that Express Database Processing is Complete
     status_update_msg("Express Database Processing Complete.")
 
-
+    
     status_update_msg("Initializing Processing for pMain...")
 
-
-    # Get a handle for the location of the pMAin csv files
-    data_path = '../unprocessed_dfs_pMain/'
-
-
-    # Determine if pMain_db_df exists, initialize or append to the database accordingly
-    if 'pMain_db_df.csv' in os.listdir(record_path):
-        pMain_db_df = pd.read_csv(record_path+'pMain_db_df.csv',index_col=[0])
+    # Determine if pMain_db_df2 exists, initialize or append to the database accordingly
+    if 'pMain_db_df2.csv' in os.listdir(record_path):
+        pMain_db_df2 = pd.read_csv(record_path+'pMain_db_df2.csv',index_col=[0])
     else:
-        pMain_db_df = pd.DataFrame()
+        pMain_db_df2 = pd.DataFrame()
 
 
     # Loop through the files in the data_path, process them, and append them    
-    for idF,pMain_file in enumerate(os.listdir(data_path)):
+    for idF,pMain_file in enumerate(os.listdir(pMain_data_path)):
 
         # Progress Bar
-        progress_bar(idF,os.listdir(data_path))
+        progress_bar(idF,os.listdir(pMain_data_path))
 
         # Processing dataframe and compiling dataframe_database
-        df = pd.read_csv(data_path+pMain_file,index_col=[0])
-        pMain_db_df = pd.concat([pMain_db_df,df])
+        df = pd.read_csv(pMain_data_path+pMain_file,index_col=[0])
+        pMain_db_df2 = pd.concat([pMain_db_df2,df])
 
 
     # Free up memeory from this file
     del pMain_file
 
+    
     # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
     status_update_msg("Converting pMain path column to category datatype...")
-    pMain_db_df['paths'] = pMain_db_df['paths'].astype('category')
+    pMain_db_df2['paths'] = pMain_db_df2['paths'].astype('category')
 
 
     # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
-    status_update_msg("Saving pMain_db_df dataframe to csv(this could take several minutes+)...")
-    pMain_db_df.to_csv('pMain_db_df.csv')
+    status_update_msg("Saving pMain_db_df2 dataframe to csv(this could take several minutes+)...")
+    pMain_db_df2.to_csv('pMain_db_df2.csv')
     del df
-    del pMain_db_df
+    del pMain_db_df2
 
 
     # Notify that pMain DatabASEProcessing is Complete
@@ -195,7 +196,9 @@ def create_dbs_from_expresspmain(data_path):
 
 
     # Notify that Processing is Complete
-    status_update_msg("Processing Complete.")    
+    status_update_msg("Processing Complete.") 
+    
+    
     
 
 def process_dbs_to_hist20s():
