@@ -344,6 +344,11 @@ def get_dataframe_from_sql(db_name,query):
     """
     Simplified way to extract dataframe from sqlite3 database.
     
+    CURRENT TABLES:
+        'data_hi_express',
+        'data18_13TeV_express_good',
+        'data18_13TeV_pMain_good'
+    
     EXAMPLE USE:
         NOTE: columns = * will get an 'Index' column as well. SELECT paths,x,y,occ to get the columns of interest
         
