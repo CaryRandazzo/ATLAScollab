@@ -199,8 +199,8 @@ def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_pat
 #     status_update_msg("Processing Complete.") 
     
 
-def build_exp_ghists_paths():
-    with open('express_good_hists.txt','r') as f:
+def build_exp_ghists_paths(hists_of_interest_txt_file):
+    with open(hists_of_interest_txt_file,'r') as f:
         arr_ = []
         for idL,line in enumerate(f.readlines()):
             if '_' not in line:
@@ -208,18 +208,19 @@ def build_exp_ghists_paths():
             arr_.append(line.replace('\n',''))
     return arr_
 
-def build_sql_database(db_name, express_table_name, pMain_table_name, express_data_path, pMain_data_path):
+def build_sql_database(db_name, express_table_name, pMain_table_name, express_data_path, pMain_data_path, express_goodhists_txt_file, pMain_goodhists_txt_file):
     
     """
     Constructs the sql database from the hists of interest found in the express_goodhists.txt and pMain_goodhists.txt files respectively.
-    
-    
+   
     EXAMPLE USE:
         db_name: 'runs.db'
         express_table_name = 'data_hi_express'
         pMain_table_name = 'skip'
         express_data_path = '../unprocessed_dfs_express2/'
         pMain_data_path = '../unprocessed_dfs_pMain2/'
+        express_goodhists_txt_file = 'express_good_hists.txt
+        pMain_goodhists_txt_file = 'pMain_good_hists.txt'
         
     In some cases, you may need to delete and recreate the database.
 
@@ -233,11 +234,11 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
     # Construct the engine used to create and manipulate the sql database
     engine = create_engine(f'sqlite:///{str(db_name)}', echo=False)
     
-    
-    # Construct and array(arr_) that has only the histogram paths in it that are also in the newly constructed dataframe(df)
-    arr_ = build_exp_ghists_paths()
-    
-    
+   
+    # For express hists: Construct and array(arr_express) that has only the histogram paths in it that are also in the newly constructed dataframe(df)
+    arr_express = build_exp_ghists_paths(express_goodhists_txt_file)
+   
+
     for idF,express_file in enumerate(os.listdir(express_data_path)):
         
         
@@ -253,8 +254,8 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
         df = pd.read_csv(express_data_path+express_file,index_col=[0]) 
     
     
-        # Determine which paths from the express_goodhists.txt(arr_) are in the newly constructed dataframe(df)
-        paths_in_df = [i for i in df['paths'].unique() if i in arr_]
+        # Determine which paths from the express_goodhists.txt(arr_express) are in the newly constructed dataframe(df)
+        paths_in_df = [i for i in df['paths'].unique() if i in arr_express]
     
     
         # Loop through the paths that have been identified to exist(paths_in_df) in the dataframe(df)
@@ -283,6 +284,9 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
     
 # KEEP THE pMain and express DATABASES IN DIFFERENT TABLES THAT IDENTIFY THIS INFORMATION (recreate and include other information such as ftag?)
 
+    # For pMain hists: Construct and array(arr_pMain) that has only the histogram paths in it that are also in the newly constructed dataframe(df)
+    arr_pMain = build_exp_ghists_paths(pMain_goodhists_txt_file)
+
     # Loop through the files in the data_path, process them, and append them    
     for idF,pMain_file in enumerate(os.listdir(pMain_data_path)):
         
@@ -299,8 +303,8 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
         df = pd.read_csv(pMain_data_path+pMain_file,index_col=[0])
         
         
-        # Determine which paths from the express_goodhists.txt(arr_) are in the newly constructed dataframe(df)
-        paths_in_df = [i for i in df['paths'].unique() if i in arr_]
+        # Determine which paths from the express_goodhists.txt(arr_pMain) are in the newly constructed dataframe(df)
+        paths_in_df = [i for i in df['paths'].unique() if i in arr_pMain]
 
         
         # Loop through the paths that have been identified to exist(paths_in_df) in the dataframe(df)
@@ -323,6 +327,8 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
 # Free up memeory from all sources
     try:
         del hists_of_interest
+        del arr_express
+        del arr_pMain
         del paths_in_df
         del df
     except:
@@ -337,7 +343,7 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
 def process_dbs_to_hist20s():
 
     """
-    
+    IMPORTANT - OLD CODE, this is already handled in build_sql_database() above. It will construct a database from the histograms of interest.
     """
 
 
