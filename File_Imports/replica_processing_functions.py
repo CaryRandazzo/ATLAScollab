@@ -98,107 +98,240 @@ def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_pat
     
     
     
-def create_dbs_from_expresspmain(express_data_path,pMain_data_path):
+# def create_dbs_from_expresspmain(express_data_path,pMain_data_path):
 
+#     """
+    
+#     IMPORTANT - OLD CODE - use build_sql_database() instead.
+    
+#     data_path: Get a handle for the location of the express csv files
+    
+#     EXAMPLE USE:
+#         express_data_path = '../unprocessed_dfs_express2/'
+#         pMain_data_path = '../unprocessed_dfs_pMain2/'
+
+    
+#     """
+    
+#     status_update_msg("Initializing Processing for express...")    
+
+    
+#     # Determine if express_db_df exists, initialize or append to the database accordingly
+#     if 'express_db_df2.csv' in os.listdir(record_path):
+#         express_db_df2 = pd.read_csv(record_path +'express_db_df2.csv',index_col=[0])
+#     else:
+#         express_db_df2 = pd.DataFrame()
+
+
+#     # Loop through the files in the data_path, process them, and append them    
+    
+#     for idF,express_file in enumerate(os.listdir(express_data_path)):
+
+#         # Progress Bar
+#         progress_bar(idF,os.listdir(express_data_path))
+
+#         # Processing dataframe and compiling dataframe_database
+#         df = pd.read_csv(express_data_path+express_file,index_col=[0])
+#         express_db_df2 = pd.concat([express_db_df2,df])
+
+
+#     # Free up memeory from this file
+#     del express_file
+
+
+#     # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
+#     status_update_msg("Converting express path column to category datatype...")
+#     express_db_df2['paths'] = express_db_df2['paths'].astype('category')
+
+
+#     # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
+#     status_update_msg("Saving express_db_df2 datafarme to csv(this could take several minutes+)...")
+#     express_db_df2.to_csv('express_db_df2.csv')
+#     del df
+#     del express_db_df2
+
+
+#     # Notify that Express Database Processing is Complete
+#     status_update_msg("Express Database Processing Complete.")
+
+    
+#     status_update_msg("Initializing Processing for pMain...")
+
+#     # Determine if pMain_db_df2 exists, initialize or append to the database accordingly
+#     if 'pMain_db_df2.csv' in os.listdir(record_path):
+#         pMain_db_df2 = pd.read_csv(record_path+'pMain_db_df2.csv',index_col=[0])
+#     else:
+#         pMain_db_df2 = pd.DataFrame()
+
+
+#     # Loop through the files in the data_path, process them, and append them    
+#     for idF,pMain_file in enumerate(os.listdir(pMain_data_path)):
+
+#         # Progress Bar
+#         progress_bar(idF,os.listdir(pMain_data_path))
+
+#         # Processing dataframe and compiling dataframe_database
+#         df = pd.read_csv(pMain_data_path+pMain_file,index_col=[0])
+#         pMain_db_df2 = pd.concat([pMain_db_df2,df])
+
+
+#     # Free up memeory from this file
+#     del pMain_file
+
+    
+#     # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
+#     status_update_msg("Converting pMain path column to category datatype...")
+#     pMain_db_df2['paths'] = pMain_db_df2['paths'].astype('category')
+
+
+#     # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
+#     status_update_msg("Saving pMain_db_df2 dataframe to csv(this could take several minutes+)...")
+#     pMain_db_df2.to_csv('pMain_db_df2.csv')
+#     del df
+#     del pMain_db_df2
+
+
+#     # Notify that pMain DatabASEProcessing is Complete
+#     status_update_msg("pMain Database Processing Complete.")
+
+
+#     # Notify that Processing is Complete
+#     status_update_msg("Processing Complete.") 
+    
+
+def build_exp_ghists_paths():
+    with open('express_good_hists.txt','r') as f:
+        arr_ = []
+        for idL,line in enumerate(f.readlines()):
+            if '_' not in line:
+                continue
+            arr_.append(line.replace('\n',''))
+    return arr_
+
+def build_sql_database(db_name, express_table_name, pMain_table_name, express_data_path, pMain_data_path):
+    
     """
+    Constructs the sql database from the hists of interest found in the express_goodhists.txt and pMain_goodhists.txt files respectively.
     
-    IMPORTANT - OLD CODE - use build_sql_database() instead.
-    
-    data_path: Get a handle for the location of the express csv files
     
     EXAMPLE USE:
+        db_name: 'runs.db'
+        express_table_name = 'data_hi_express'
+        pMain_table_name = 'skip'
         express_data_path = '../unprocessed_dfs_express2/'
         pMain_data_path = '../unprocessed_dfs_pMain2/'
+        
+    In some cases, you may need to delete and recreate the database.
 
-    
     """
     
-    status_update_msg("Initializing Processing for express...")    
-
     
-    # Determine if express_db_df exists, initialize or append to the database accordingly
-    if 'express_db_df2.csv' in os.listdir(record_path):
-        express_db_df2 = pd.read_csv(record_path +'express_db_df2.csv',index_col=[0])
-    else:
-        express_db_df2 = pd.DataFrame()
-
-
-    # Loop through the files in the data_path, process them, and append them    
+    # Inialization message
+    status_update_msg("Initializing Processing for express...")    
+    
+    
+    # Construct the engine used to create and manipulate the sql database
+    engine = create_engine(f'sqlite:///{str(db_name)}', echo=False)
+    
+    
+    # Construct and array(arr_) that has only the histogram paths in it that are also in the newly constructed dataframe(df)
+    arr_ = build_exp_ghists_paths()
+    
     
     for idF,express_file in enumerate(os.listdir(express_data_path)):
-
+        
+        
+        if express_table_name == 'skip':
+            break
+        
+        
         # Progress Bar
         progress_bar(idF,os.listdir(express_data_path))
 
+        
         # Processing dataframe and compiling dataframe_database
-        df = pd.read_csv(express_data_path+express_file,index_col=[0])
-        express_db_df2 = pd.concat([express_db_df2,df])
+        df = pd.read_csv(express_data_path+express_file,index_col=[0]) 
+    
+    
+        # Determine which paths from the express_goodhists.txt(arr_) are in the newly constructed dataframe(df)
+        paths_in_df = [i for i in df['paths'].unique() if i in arr_]
+    
+    
+        # Loop through the paths that have been identified to exist(paths_in_df) in the dataframe(df)
+        for idP,path in enumerate(paths_in_df):
+            
+            # If hists_of_interest already exists, concatenate the subset dataframe in df that is df[df['paths']==paths_in_df[i]]
+            try:
+                hists_of_interest = pd.concat([hists_of_interest,df[df['paths']==paths_in_df[idP]]])
+            # If hists_of_interest does not exist, set it to this subset dataframe df[df['paths']==paths_in_df[i]]
+            except:
+                hists_of_interest = df[df['paths']==paths_in_df[idP]]
+    
+    
+    hists_of_interest.to_sql(express_table_name, engine, if_exists='append')
 
 
-    # Free up memeory from this file
-    del express_file
-
-
-    # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
-    status_update_msg("Converting express path column to category datatype...")
-    express_db_df2['paths'] = express_db_df2['paths'].astype('category')
-
-
-    # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
-    status_update_msg("Saving express_db_df2 datafarme to csv(this could take several minutes+)...")
-    express_db_df2.to_csv('express_db_df2.csv')
-    del df
-    del express_db_df2
-
-
-    # Notify that Express Database Processing is Complete
-    status_update_msg("Express Database Processing Complete.")
+#     # Notify that Express Database Processing is Complete, and next phase    
+    status_update_msg("Express Database Processing Complete. Initializing Processing for pMain...")
 
     
-    status_update_msg("Initializing Processing for pMain...")
-
-    # Determine if pMain_db_df2 exists, initialize or append to the database accordingly
-    if 'pMain_db_df2.csv' in os.listdir(record_path):
-        pMain_db_df2 = pd.read_csv(record_path+'pMain_db_df2.csv',index_col=[0])
-    else:
-        pMain_db_df2 = pd.DataFrame()
-
+    # Clear hists_of_interest for pMain
+    try:
+        del hists_of_interest
+    except:
+        pass
+    
+# KEEP THE pMain and express DATABASES IN DIFFERENT TABLES THAT IDENTIFY THIS INFORMATION (recreate and include other information such as ftag?)
 
     # Loop through the files in the data_path, process them, and append them    
     for idF,pMain_file in enumerate(os.listdir(pMain_data_path)):
+        
+        
+        if pMain_table_name == 'skip':
+            break
 
+            
         # Progress Bar
         progress_bar(idF,os.listdir(pMain_data_path))
 
+        
         # Processing dataframe and compiling dataframe_database
         df = pd.read_csv(pMain_data_path+pMain_file,index_col=[0])
-        pMain_db_df2 = pd.concat([pMain_db_df2,df])
+        
+        
+        # Determine which paths from the express_goodhists.txt(arr_) are in the newly constructed dataframe(df)
+        paths_in_df = [i for i in df['paths'].unique() if i in arr_]
+
+        
+        # Loop through the paths that have been identified to exist(paths_in_df) in the dataframe(df)
+        for idP,path in enumerate(paths_in_df):
+            
+            # If hists_of_interest already exists, concatenate the subset dataframe in df that is df[df['paths']==paths_in_df[i]]
+            try:
+                hists_of_interest = pd.concat([hists_of_interest,df[df['paths']==paths_in_df[idP]]])
+            # If hists_of_interest does not exist, set it to this subset dataframe df[df['paths']==paths_in_df[i]]
+            except:
+                hists_of_interest = df[df['paths']==paths_in_df[idP]]
+
+                
+    try:    
+        hists_of_interest.to_sql(pMain_table_name, engine, if_exists='append')
+    except:
+        print('likely skipped pMain')
 
 
-    # Free up memeory from this file
-    del pMain_file
+# Free up memeory from all sources
+    try:
+        del hists_of_interest
+        del paths_in_df
+        del df
+    except:
+        print("error deleting variables - likely skipped in parameters")
 
     
-    # Reduce df.memory_usage() by converting paths column to category datatype - these 14 datasets nearly max out the entire 8gb of ram
-    status_update_msg("Converting pMain path column to category datatype...")
-    pMain_db_df2['paths'] = pMain_db_df2['paths'].astype('category')
-
-
-    # Save database as csv (56,064,638 datapoints took 7m15s for this part of the code alone..thats 6.36GB file size according to the directory viewer)
-    status_update_msg("Saving pMain_db_df2 dataframe to csv(this could take several minutes+)...")
-    pMain_db_df2.to_csv('pMain_db_df2.csv')
-    del df
-    del pMain_db_df2
-
-
-    # Notify that pMain DatabASEProcessing is Complete
-    status_update_msg("pMain Database Processing Complete.")
-
-
-    # Notify that Processing is Complete
-    status_update_msg("Processing Complete.") 
-    
-    
+    # Notify that pMain Database Processing is Complete
+    status_update_msg("All Processing Complete.") 
+        
     
 
 def process_dbs_to_hist20s():
