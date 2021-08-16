@@ -337,8 +337,45 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
     
     # Notify that pMain Database Processing is Complete
     status_update_msg("All Processing Complete.") 
-        
+
+
+def get_dataframe_from_sql(db_name,query):
     
+    """
+    Simplified way to extract dataframe from sqlite3 database.
+    
+    EXAMPLE USE:
+        NOTE: columns = * will get an 'Index' column as well. SELECT paths,x,y,occ to get the columns of interest
+        
+        db_name = 'runs.db'
+        query = 'SELECT * FROM data_hi_express WHERE paths="run_366268/CaloMonitoring/ClusterMon/CaloCalTopoClustersNoTrigSel/2d_Rates/m_clus_etaphi_Et_thresh3"'
+        
+        OR 
+        tmp_path = engine.execute('SELECT DISTINCT paths FROM data_hi_express').fetchall()[0]
+        query = f'SELECT * FROM data_hi_express WHERE paths="{tmp_path[0]}"'
+        
+        OR simply
+        query = 'SELECT paths,x,y,occ FROM data_hi_express'
+    
+    """
+    
+    
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    
+    
+    try:
+        df = pd.read_sql(query,engine)
+    except:
+        print('ERROR: false query? or engine error?')
+    
+    # Free up system resources
+    try:
+        del engine
+    except:
+        pass
+    
+    return df    
+
 
 def process_dbs_to_hist20s():
 
@@ -396,6 +433,10 @@ def process_dbs_to_hist20s():
     
 
 def load_express_and_pmain_hist20():
+    
+    """
+    IMPORTANT - OLD CODE, use get_dataframe_from_sql() above instead.
+    """
 
     express_hist20 = pd.read_csv(record_path+'express_hist20.csv',index_col=[0])
     pMain_hist20 = pd.read_csv(record_path+'pMain_hist20.csv',index_col=[0])
