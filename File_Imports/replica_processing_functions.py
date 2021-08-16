@@ -356,6 +356,8 @@ def get_dataframe_from_sql(db_name,query):
         
         OR simply
         query = 'SELECT paths,x,y,occ FROM data_hi_express'
+        
+        When the other features are added to the table (such as 'quality') include those in the query as well.
     
     """
     
@@ -443,11 +445,37 @@ def load_express_and_pmain_hist20():
 
     return express_hist20,pMain_hist20
  
- 
+    
+def init_goodhists_quality_feature(db_df,db_name,table_name):
+
+    """
+    EXAMPLE USE:
+        df_db  = get_dataframe_from_sql('runs.db','SELECT paths,x,y,occ FROM data_hi_express')
+        db_name = 'runs.db'
+        table_name = 'data_hi_express'
+    """
+    
+    # Initialize all good quality hist 'quality' values to 0. (0 as good, 1 as bad 'quality').
+
+    # Create the quality column and set it to all zeros(good quality)
+    db_df['quality'] = [int(0)]*len(db_df['x'].values)
+
+    # Save the newly edited database
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    db_df.to_sql(table_name,engine, if_exists='replace')
+    
+    
+def init_badhists_quality_feature():
+    """
+    Under Construction! - finish me
+    """
+    
  
 def init_hist20s_forqualityvals():
 
     """
+    IMPORTANT - OLD CODE - use init_goodhists_quality_feature() and/or init_badhists_quality_feature() instead.
+    
     This function assumes the hist_targets_txt_files folder containing the hist targets text files exist and are accessable.
     """
     
@@ -475,7 +503,7 @@ def init_hist20s_forqualityvals():
     pMain_hist20.to_csv(record_path+'pMain_hist20.csv')
     
 
-
+# The following are still usable without modification now that we are using a dataframe pulled from a sql database
 
 def scale_cnvrt_dic(hists_df,index_of_hist_of_interest,x_or_y_axis_as_0or1):
     """
@@ -662,34 +690,38 @@ def prep_quality_feature(list_of_hists_df, hist_index, txt_file_path):
     # tmp[tmp['paths'] == tmp['paths'].unique()[0]]
     """
     
-    
     # Convert the txt_file_path with '-'s in it to txt_file_path with '/'s in it instead
     txt_file_path = txt_file_path.replace('-','/')
+    
     
     # Extract and get a handle for val_list from txt_file_path
     val_list = extract_val_list(txt_file_path)
     
+    
     # Convert our val_list tuple of 5 values to a tuple of 2 coordinate values (x,y)
     val_list_xy = [(tup[0],tup[1]) for tup in val_list]
     
+    
     # If the histogram of interest is in the list of paths that are associated with specific red/yellow hit coordinates (hit_n = (x,y,color,occ,hist_path))
-    
-    
     if list_of_hists_df['paths'].unique()[hist_index] in [tup[5] for tup in val_list]:
         
         # Get a handle for the histogram we are constructing the quality feature for
         tmp = list_of_hists_df[list_of_hists_df['paths']==list_of_hists_df['paths'].unique()[hist_index]]
+    
     else:
         return "Error: the unique histogram chosen as hist_index cannot be found for any of the hist_paths in val_list"
     
+    
     # Get the coordinate conversion dictionary
     cnvrt_dic_x, cnvrt_dic_y = scale_cnvrt_dic(pMain_hist20,hist_index,0), scale_cnvrt_dic(pMain_hist20,hist_index,1)
+    
     
     # Loop through the quality values, if the coordinates match the location of the hit, modify their quality value
     for idx,val in enumerate(tmp['quality'].values):
         
         # If the tuple (x,y) from histogram tmp is in the list of (x,y) tuples from the hit value list (val_list_xy)
         if (cnvrt_dic_x['x_'+str(int(tmp.iloc[idx,1]))],cnvrt_dic_y['y_'+str(int(tmp.iloc[idx,2]))]) in val_list_xy:
+    
             # Set the quality class for this hit (0/1 for green/red, 0/1/2 for green/yellow/red ...for now we just use 0/1)
             tmp.iloc[idx,4] = 1 
     
@@ -772,14 +804,8 @@ def add_specific_qualityvals_to_hist20s(hist_index,quality_val_txtfile):
     # Convert float columns to integers - needed to do this for the big database as well...
     express_hist20['y'] = [int(a) for a in express_hist20['y'].values]
     
-    # Do not convert float values to int, there are float values for occupancy in histograms!
-    #express_hist20['occ'] = [int(a) for a in express_hist20['occ'].values]
-
     # Convert float columns to integers - needed to do this for the big database as well...
     pMain_hist20['y'] = [int(a) for a in pMain_hist20['y'].values]
-    
-    # Do not convert float values to int, there are float values for occupancy in histograms!
-#     pMain_hist20['occ'] = [int(a) for a in pMain_hist20['occ'].values]
 
 
     # Create the target value for the histogram(s) of interest based on hist index(unique histogram number from a list_of_hists such as pMain_hist20)
