@@ -251,3 +251,24 @@ def display_hists_in_dataset(df):
     del ax
     del idP
     del path
+    
+    
+###################
+# OTHER FUNCTIONS #
+###################
+
+def drop_table_from_sqlalchemy(db_name, table_name_str):
+    
+    """
+    from sqlalchemy import engine
+    from pandas.io import sql
+    
+    """
+    
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    
+    sql.execute('DROP TABLE IF EXISTS %s'%table_name_str, engine)
+    sql.execute('VACUUM', engine)
+    
+    print(engine.table_names())
+    del engine
