@@ -19,6 +19,204 @@ def status_update_msg(msg):
     print(msg)
     return
 
+def process_hist_lines(input_filename,output_filename):
+    
+    """
+    Take in a text file of histograms organized such as follows:
+        run-line (contains the run_######/, ftag, and energy information for the run)
+        path-lines (contains the path of a specific histogram of interest)
+        more path lines...
+        repeat from run-line
+        
+    NOTE: This information is copy pasted from the dqm web display
+        
+    EXAMPLE TEXT FILE(example only, not real entry):
+        run_363664/ f1002_h295 data18_hi (run-line)
+        CaloMonitoring/ClusterMon/...etc.../m_clus_etaphi_Et_thresh0 (path-lines)
+        ...etc
+        run-line
+        path-lines
+        
+    Adds the run_######/ to the beginning of each path-line in the text file and sends the processedfile to output_file
+    
+    EXAMPLE USE:
+        input file = 'backups/express_good_hists2.txt'
+        output_file = 'express_good_hists2_processed1.txt'
+        
+    Output Files will be formatted as follows: For each individual {energy} and {ftag} there will be associated various listed runs in path-lines, and the meta information will be listed
+    in the run-line.
+    
+    EXAMPLE:
+        run-line   -> run_366142/ f1027_h331 data18_hi
+        path-lines -> run_366142/CaloMonitoring/ClusterMon/CaloCalTopoClustersNoTrigSel/2d_Rates/m_clus_etaphi_Et_thresh2
+        path-lines -> ...etc
+
+        
+    """
+    
+    # Initialize the array that will contain the processed lines of the input_file 
+    lines = []
+
+
+    # Open and process the input_file
+    with open(input_filename) as f:
+        
+        # For each line in the input_filename
+        for line in f.readlines():
+
+            # If run is in the line
+            if 'run' in line:
+                
+                # Get a handle for the run string
+                run = line.split(' ')[0]
+                
+                # If there is a 3rd part of the line (the energy part), this is a run-line, add it to the lines array for later writing to output_filename
+                try:
+                    line.split(' ')[2]
+                    lines.append(line)
+                except:
+                    print('Error, run-line bad format!')
+
+            # If ClusterMon is in this line, it is a path-line, append the run string part to the path part of the string and add this line to the lines array
+            if 'ClusterMon' in line:
+                lines.append(run+line)
+
+
+    # Create and prepare the output_file
+    with open(output_filename, 'w') as f:
+        
+        # Write each of the lines to the output file from the lines array
+        for line in lines:
+            f.write(line)
+            
+            
+def postprocessed_histfile(input_filename):
+    
+    """
+    
+    ~~NEEDS TESTING TO MAKE SURE RUNS AS EXPECTED~~
+    
+    This takes processed histograms text file from process_hist_lines() as input_filename and converts each unique {energy} {ftag} combination to an individual file for inputting as a
+    separate sqlite3 table with build_sql_database().
+    
+    EXAMPLE input_filename format:
+        run_######/ f100_h295 data18_hi (several of these exist in this file, IMPORTANT NOTE!: Manually deplete duplicate ftag/energy combinations before running this function!)
+        run_######/path-lines (path-lines)
+        ... (path-lines continued)
+        repeat above lines for different ftag/energy combination
+    
+    EXAMPLE One of the output files generated, each have the following format(example only):
+        data18_hi f100_h295 (a single line)
+        run_######/path-lines (path-lines)
+        ... (path-lines continued for a single energy/ftag combination per file)
+        
+    EXAMPLE USE:
+        input_filename = 'backups/express_good_hists2_processed1.txt'
+        
+    
+    """
+    
+    # These lines will either have {run} {ftag} {energy} in a line or  {path-line} with run/ in front of it
+    with open(input_filename) as f:
+        
+        for line in f.readlines():
+            
+            # Remove the return characters
+            line = line.replace('\n','')
+        
+            # If ClusterMon not in the line, it must be a run-line
+            if 'ClusterMon' not in line:
+                
+                # Get a handle for the run, ftag, and energy parts of the line
+                line = line.split(' ')
+                # run = line[0]
+                # ftag = line[1]
+                # energy = line[2]
+                
+                # Write this run-line to the new output_file(s) in the desired format
+                with open(f'express_goodhists_{line[2]}_{line[1]}.txt','a+') as f2:
+                    # Write {run} {ftag} {energy} to file
+                    f2.write(line[2]+' '+line[1]+'\n')
+                
+            # If ClusterMon is in the line, it must be a path-line
+            if 'ClusterMon' in line:
+                
+                # Append to the file that these paths represent based on previously identified run/ftag/energy combination
+                with open(f'express_goodhists_{line[2]}_{line[1]}.txt','a+') as f2:
+                    # Write run_######/path-lines to file
+                    f2.write(line+'\n')
+                    
+
+def what_replicas_to_request(input_filename, stream):
+    
+    """
+    
+    Rucio requests take a specific format. This takes the lines we processed previously in postprocessed_hist_file() and turns the lines into the individual requests needed from rucio
+    with their appropriate format.
+    
+    EXAMPLE FORMAT for a data18_hi request:
+        data18_hi:data18_hi.00366526.express_express.merge.HIST.f1030_h333
+    
+    EXAMPLE USE:
+        input_filename = 'backups/express_good_hists2.txt'
+        stream = 'express'
+        
+    EXAMPLE OUTPUT:
+        data18_hi:data18_hi.00366142.express_express.merge.HIST.f1027_h331
+        ...etc like this
+    
+    """
+    
+    # Determine the format of the stream for the request
+    if stream == 'express':
+        stream = 'express_express'
+    elif stream == 'physics_Main':
+        stream = 'physics_Main'  
+    elif stream == 'pMain':
+        stream = 'physics_Main'
+        
+    
+    # Open the file that contains the final processed histograms and meta information
+    with open(input_filename) as f:    
+    
+        # Initialize the variable that will tell us how many requests we have in total    
+        cnt=0
+        
+        # Read through each line of the file
+        for line in f.readlines():
+            
+            
+            # Remove the return characters
+            line = line.replace('\n','')
+            
+            # If this line contains run in it, it must be a 'run-line'
+            if 'run' in line:
+                
+                # Update the number of requests we will have to make
+                cnt+=1
+                
+                # So get a handle for the different pieces of this run-line
+                line = line.split(' ')
+                
+                # The run, then is line[0]
+                run = line[0]
+                
+                # The ftag, then is line[1]
+                ftag = line[1]
+                
+                # And the energy then is line[2] (in the unfortunate first time formatting of this file some energy was left blank and all were data18_hi so handle this)
+                try:
+                    energy = line[2]
+                except:
+                    energy = 'data18_hi'
+                    
+                # Print the appropriate request format depending on the energy type
+                print(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")                
+
+                
+        # Display the number of requests we will have to make
+        print(f'Number of Requests: {cnt}')
+        
 
 def prepeach_expresspmain_df(replica_folders_path):
 
@@ -450,6 +648,7 @@ def load_express_and_pmain_hist20():
 
     return express_hist20,pMain_hist20
  
+    
     
 def init_goodhists_quality_feature(db_df,db_name,table_name):
 
