@@ -397,19 +397,32 @@ def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_pat
 #     status_update_msg("Processing Complete.") 
     
 
-def build_exp_ghists_paths(hists_of_interest_txt_file):
-    with open(hists_of_interest_txt_file,'r') as f:
+def build_exp_ghists_paths(paths_txt_file):
+    
+    """
+    
+    Extracts the path-lines from paths_txt_file and sends them to arr_. The list arr_ is used against the paths available in each processed run.csv to determine which 
+    histograms to extract from that run. This function should be used prior to running the build_sql_database() function. 
+    
+    EXAMPLE USE:
+        paths_txt_file = 'backups/express_good_hists2_processed1.txt'
+        
+    """
+    
+    with open(paths_txt_file,'r') as f:
         arr_ = []
         for idL,line in enumerate(f.readlines()):
-            if '_' not in line:
+            if 'ClusterMon' not in line:
                 continue
             arr_.append(line.replace('\n',''))
     return arr_
 
-def build_sql_database(db_name, express_table_name, pMain_table_name, express_data_path, pMain_data_path, express_goodhists_txt_file, pMain_goodhists_txt_file):
+
+def build_sql_database(db_name, express_table_name, pMain_table_name, express_data_path, pMain_data_path, express_goodhists_txt_file, pMain_goodhists_txt_file, arr_):
     
     """
-    Constructs the sql database from the hists of interest found in the express_goodhists.txt and pMain_goodhists.txt files respectively.
+    Constructs the sql database from the hists of interest found in the express_goodhists.txt and pMain_goodhists.txt files respectively. The build_exp_ghists_paths()
+    function or a similar function for constructing the paths arr_ is required to use build_sql
    
     EXAMPLE USE:
         db_name: 'runs.db'
@@ -417,8 +430,9 @@ def build_sql_database(db_name, express_table_name, pMain_table_name, express_da
         pMain_table_name = 'skip'
         express_data_path = '../unprocessed_dfs_express2/'
         pMain_data_path = '../unprocessed_dfs_pMain2/'
-        express_goodhists_txt_file = 'express_good_hists.txt
-        pMain_goodhists_txt_file = 'pMain_good_hists.txt'
+        express_goodhists_txt_file = 'backups/express_good_hists.txt
+        pMain_goodhists_txt_file = 'backups/pMain_good_hists.txt'
+        arr_ = build_exp_ghists_paths('backups/express_good_hists.txt')
         
     In some cases, you may need to delete and recreate the database.
 
