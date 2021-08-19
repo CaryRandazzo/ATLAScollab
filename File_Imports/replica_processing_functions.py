@@ -221,7 +221,8 @@ def what_replicas_to_request(input_filename, stream):
 def prepeach_expresspmain_df(replica_folders_path):
 
     """
-    Prepare the list of express_dfs and pMain dfs
+    Given the replica_folders_path, Prepare the list of express_dfs and pMain dfs. Assumes replica folders path is a location of folders whose root files are
+    another directory layer deep (a folder inside a folder with a root file inside of that).
     """
 
     # Initialize lists of dataframes, one per stream type
@@ -248,7 +249,7 @@ def prepeach_expresspmain_df(replica_folders_path):
             # Process data to dataframe and append to list of dataframes, some are express stream some are pMain stream, 2 separate df_lists will reduce memory vs adding columns
             if 'express_express' in file2:
                 df_express_list.append(hist_to_df(path+file+'/'+file2))
-            else:
+            elif 'physics_Main' in file2:
                 df_pMain_list.append(hist_to_df(path+file+'/'+file2))
     return df_express_list,df_pMain_list
     
@@ -257,9 +258,11 @@ def prepeach_expresspmain_df(replica_folders_path):
 def construct_dfs_by_runstream(df_express_list,df_pMain_list, express_output_path,pMain_output_path):
     """
     
-    Creates .csv files from a list of express dataframes and a list of pMain dataframes. Sends the .csv's to the output_path location.
+    Creates .csv files from a list of express dataframes and a list of pMain dataframes given by the prepeach_expresspmain_df() function. 
+    Sends the .csv's to the output_path location.
     
     EXAMPLE USE:
+        df_express_list, df_pMain_list = prepeach_expresspmain_df(replica_folders_path)
         express_output_path = '../unprocessed_dfs_express2/'
         pMain_output_path = '../unprocessed_dfs_pMain2/'
         
