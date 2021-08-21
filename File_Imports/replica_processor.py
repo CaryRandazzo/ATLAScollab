@@ -80,7 +80,7 @@ def build_hists_paths_arr(paths_txt_file):
         arr_, ftags, energys, streams = [], [], [], []
         
         for idL,line in enumerate(f.readlines()):
-            if 'ClusterMon' not in line:
+            if 'ClusterMon' not in line and 'R' not in line and 'Y' not in line:
                 
                 line = line.replace('\n','')
                 
@@ -186,7 +186,7 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
             hists_of_interest.to_csv(f'{backup_output_dir}{db_name.replace(".","_")}${table}$backup.csv')
             
             # Send the concatenated dataframes of interest, for this particular table, to the sql database
-            hists_of_interest.to_sql(table, engine, if_exists='append')
+            hists_of_interest.to_sql(table, engine, if_exists='append', index=False)
             
             # How far along in the process of preparing the hists_of_interests for this table for this batch of runs? - Also, notify that the table succesfully made it to the database
             print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table exists and has been saved to database.")
@@ -246,8 +246,9 @@ def get_dataframe_from_sql(db_name,query):
 def create_db_backup_csvs(db_name,output_dir):
     
     """
-    The build_sql_database() function should now build these backups itself, if that works then update and remove this function. This has been tested to work if
-    the database itself has not been corrupted.
+    The build_sql_database() function should now build these backups itself, if that works then this will not initially be needed, but it is useful for constructing
+    new backups as the files are further processed such as when adding the quality feature(binary mask of target values). 
+    This has been tested to work assuming the database itself has not been corrupted.
     
     EXAMPLE USE:
         db_name = 'runs2.db'
@@ -278,3 +279,81 @@ def test_database_for_corruption(db_name):
             display(engine.execute(f'SELECT * FROM {table} LIMIT 5').fetchall())
         except:
             print(f'TABLE({table}) CORRUPTED - RECREATE!')
+
+
+def rebuild_db_from_backup_csvs(db_name,db_table_backup_csvs_path):
+    
+    """
+    
+    Use this function in case you need to rebuild a corrupt database from backup files. - Untested as of yet
+    
+    EXAMPLE USE:
+        db_name = 'runs2.db'
+        db_table_backup_csvs_path = 'backups/'
+    """
+    
+    # Construct the sql engine for db_name
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    
+    # Loop through backup csvs in the backup csv directory
+    for backup_csv in [i for i in os.listdir(db_table_backup_csvs_path) if 'backup.csv' in i]:
+        
+        # Get the meta_info for this backup_csv
+        meta_info = backup_csv.split('$')
+        
+        # Construct the dataframe from the backup csv
+        df = pd.read_csv(backup_csv)
+        
+        # Send that csv to the sql database whose table name is based on the meta info
+        df.to_sql(f"{meta_info[1]}${meta_info[2]}${meta_info[3]}", engine, if_exists='replace')
+    
+        
+def init_goodhists_quality_feature(db_df,db_name,table_name):
+
+    """
+    EXAMPLE USE:
+        df_db  = get_dataframe_from_sql('runs.db','SELECT paths,x,y,occ FROM data_hi_express')
+        db_name = 'runs.db'
+        table_name = 'data_hi_express'
+    """
+    
+    # Initialize all good quality hist 'quality' values to 0. (0 as good, 1 as bad 'quality').
+
+    # Create the quality column and set it to all zeros(good quality)
+    db_df['quality'] = [int(0)]*len(db_df['x'].values)
+
+    # Save the newly edited database
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    db_df.to_sql(table_name,engine, if_exists='replace', index=False)
+    
+    
+    
+##########################
+# MAIN RUN OF THS SCRIPT #
+##########################
+
+# Constructing the sql database from the directory containing the batch folders of run files/folders
+
+for dir_ in os.listdir('../defectless_runs/'):
+    print(dir_,' Complete.')
+    build_sql_database('runs2.db', prep_dict_of_dfs_and_tables(f'../defectless_runs/{dir_}/'), 'backups/green_hists_of_interest/','backups/database_backup_files/green_hists_of_interest)
+    
+
+# Construct all the quality values for the good histograms
+
+# Start by creating the sqlalchemy engine to manipulate the database
+engine = create_engine(f'sqlite:///runs2.db', echo=False)
+# Then loop through the tables and do add the quality feature to the good hists
+for idT,table in enumerate(engine.table_names()):
+    init_goodhists_quality_feature(get_dataframe_from_sql('runs2.db',f'SELECT * FROM {table}'), 'runs2.db', table)
+    print(f"{idT+1} of {len(engine.table_names())} Complete")
+    
+    
+# Quick view of dataframes in sql database tables
+
+for table in engine.table_names():
+    display(table, get_dataframe_from_sql('runs2.db',f'SELECT * FROM {table}').head(1))
+    
+# With the newly constructed quality features for the good histograms, we create backups of this
+
+create_db_backup_csvs('runs2.db','backups/qual_processed/')
