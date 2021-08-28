@@ -1,5 +1,6 @@
-from default_imports import *
+import os
 from functions import *
+from default_imports import *
 from sqlalchemy import create_engine
 
 
@@ -8,6 +9,7 @@ def progress_bar(id_,array_):
     clear_output(wait=True)
     print(f"Processing file {id_+1} of {len(array_)} files... {round(100*(id_+1)/len(array_),2)}% Complete")
     return
+
 
 def status_update_msg(msg):
     clear_output(wait=True)
@@ -80,12 +82,29 @@ def build_hists_paths_arr(paths_txt_file):
         arr_, ftags, energys, streams = [], [], [], []
         
         for idL,line in enumerate(f.readlines()):
-            if 'ClusterMon' not in line and 'R' not in line and 'Y' not in line:
+
+            # Skip lines that are spaces
+            if line == ' ':
+                continue
+            
+            # Lines that do not have ClusterMon are either meta_info lines or R/Y target lines
+            if 'ClusterMon' not in line:
                 
+                # Skip R/Y target lines
+                if 'R' in line or 'Y' in line:
+                    continue
+                
+                # Process the meta_info line
                 line = line.replace('\n','')
                 
+                # Skip empty lines
+                if line.split(' ')[0] == '':
+                    continue
+                
+                # Process the ftags from line
                 ftag = line.split(' ')[0]
                 
+                # Process the energy info from line
                 energy = line.split(' ')[1]
                     
             if 'ClusterMon' in line:
@@ -102,6 +121,274 @@ def build_hists_paths_arr(paths_txt_file):
     return arr_, energys, ftags, streams
 
 
+# Verification of runs downloaded vs runs needed from histograms of interest in the following few verification functions. These are to be done before constructing 
+# the sql database in order to prevent errors during its creation.
+
+
+def verify_hoi_from_file(replica_hoi_path):
+    
+    """
+    
+    Generates the hoi_list for verifying histograms of interests from file.
+    
+    Currently, all histograms are assumed to be of the 'express stream' type. Thus, stream='express' in this function.
+    
+    EXAMPLE USE:
+        verify_hoi_from_file('backups/red_hists_of_interest/150redhists_express_processed1.txt')
+    
+    """
+    
+    # Initialize ftag, energy, and run lists
+    fs,es,rs = [],[],[]
+    
+    # Open the Replica histogram of interest path/file
+    with open(replica_hoi_path) as f:
+        
+        # Loop through the lines in the file
+        for line in f.readlines():
+            
+            # Remove the return command from the line. All lines have this at the end even blank ones.
+            line = line.replace('\n','')
+            
+            # Get a handle for what stream it is
+            stream = 'express'
+            
+            # If this line in the file is a space, skip it
+            if line == ' ':
+                continue
+            
+            # If the line is blank, skip it. This occurs as a result of a line that has a return being converted to ''.
+            if line == '':
+                continue
+                
+            # ClusterMon is in the lines that contain the path info for the histogram of interest, lines without are either meta_info lines, blank lines, space lines, or R/Y target lines
+            if 'ClusterMon' not in line:
+                
+                # Some lines with ClusterMon contain 'R', for the lines without ClusterMon, if R is in the line, skip it. Otherwise it must be a meta_info line
+                
+                # Skip R/Y target lines
+                if 'R' in line or 'Y' in line:
+                    continue
+                    
+                # Process meta_info lines
+                line = line.split(' ')
+                
+                # Get a handle for the ftag part of the line
+                ftag = line[0]
+                
+                # Get a handle for the energy part of the line
+                energy = line[1]
+                
+            # if line contains 'path info'
+            elif 'ClusterMon' in line:
+                # Line up and append the information for this specific histogram's path, its energy, and its ftag information for later use
+                fs.append(ftag)
+                es.append(energy)
+                rs.append(line.split('/')[0].split('_')[1])
+
+                
+    # Initialize array that will contain properly formatted "ftag energy run" information
+    hoi_list = []
+    
+    
+    # Append the values as they line up by id all to hoi_list
+    for idE,entry in enumerate(rs):
+        hoi_list.append(f"{fs[idE]} {es[idE]} {rs[idE]}")
+
+        
+    return hoi_list
+
+            
+def verify_run_directory_list(run_directory_path):
+    
+    """
+    
+    Generates the properly formatted run directory list by "ftag energy run" information.
+    
+    All histograms are assumed to be of the stream type stream='express' in this function. Will identify express stream files on its own but no other streams are
+    currently recognized.
+    
+    EXAMPLE USE:
+        verify_run_directory_list('../defective_runs/')
+    
+    """
+    
+    # Initialize the ftag, energy, run lists
+    fs,es,rs = [],[],[]
+    
+    # Initialize the run directory list
+    run_directory_list = []
+    
+    
+    # Loop through the run_directory_path and find each run(entry) with its "ftag energy run" info contained in its name
+    for entry in os.listdir(run_directory_path):
+        
+        # Skip entries that have .sys in their name
+        if 'sys' in entry:
+            continue
+        
+        # Set the stream as express if it exists in the name of the entry
+        if 'express' in entry:
+            stream = 'express'
+            
+        # Prepare the entry for meta info processing
+        entry = entry.split('.')
+        
+        # Get the ftag of the entry
+        ftag = entry[5]
+        
+        # Get the energy of the entry
+        energy = entry[0]
+        
+        # Get the run information of the entry
+        run = entry[1]
+        
+        # If the run has a leading '0' in its name, it is of format '00xxxxxx' and those leading values should be removed
+        if run[0] and run[1] == '0':
+            
+            # Get the modified run information of the entry based on the condition
+            run = run[2:]
+            
+        # Add the information for the single entry to the run_directory_list, in the appropriate format
+        run_directory_list.append(f"{ftag} {energy} {run}")
+        
+        
+    return run_directory_list
+    
+    
+def verify_hois_in_run_directory(hoi_list,runs_in_directory):
+    
+    """
+    
+    Handles the verification that the runs that contain the histograms of interest exist in the run directory. Uses the results of
+    verify_hoi_from_file() and verify_run_directory_list() to run this verification process.
+    
+    
+    EXAMPLE USE:
+        verify_hois_in_run_directory(verify_hoi_from_file('backups/red_hists_of_interest/150redhists_express_processed1.txt'),verify_run_directory_list('../defective_runs/'))
+    
+    """
+    
+    # Initialize a count for how many histograms of interest are not present in the run directory
+    cnt=0
+    
+    
+    # Loop through the histograms of interest list and get a handle for each 'unique' entry
+    for unique_entry in set(hoi_list):
+        
+        # If the histogram of interest from ho_list not present in run directory
+        if unique_entry not in runs_in_directory:
+            
+            # Update how many hoi are not present in the count cnt
+            cnt+=1
+            
+            # And notify the user that unique entry 'unique_entry' is not present in the run directory
+            print(unique_entry, 'not in directory')  
+            
+    # Otherwise, the count will be zero and all histograms of interest are in the run directory
+    if cnt == 0:
+        print('All histograms_of_interest in run_directory')
+
+    
+def verify_run_directory_filesizes(run_directory_path):
+    
+    """
+    
+    Another important verification step as part of building the database is verifying the filesizes of the runs in the directory in the case they did not download
+    properly. This function assists in that process.
+    
+    Only identifies stream information for 'express' streams.
+    
+    EXAMPLE USE:
+        verify_run_directory_filesizes('../defective_runs/')
+    
+    """
+    
+    # Initialize the ftag, energy, and run lists
+    fs,es,rs = [],[],[]
+    
+    # Initialize the run directory list
+    run_directory_list = []
+    
+    # Initialize the file size list
+    file_size_list = []
+    
+    # Loop through the runs in the run directory path
+    for entry in os.listdir(run_directory_path):     
+        
+        # Skip the entries with .sys in their name
+        if 'sys' in entry:
+            continue
+            
+        # Look for and tag this run's stream as 'express' if express exists in this entry's name
+        if 'express' in entry:
+            stream = 'express'
+            
+        # Handle the processing of the entry as a separate variable 'entryy'
+        entryy = entry.split('.')
+        
+        # Get the ftag for the entry
+        ftag = entryy[5]
+        
+        # Get the energy for the entry
+        energy = entryy[0]
+        
+        # Get the run for the entry
+        run = entryy[1]
+        
+        # If the run has a leading '0' in its name, it is of format '00xxxxxx' and those leading values should be removed
+        if run[0] and run[1] == '0':
+            
+            # Get the modified run information of the entry based on the condition
+            run = run[2:]
+            
+        # Append the formatted ftag energy and run information to the run_directory list
+        run_directory_list.append(f"{ftag} {energy} {run}")
+        
+        # Get and append the file size information for the run whose information was appended to run_directory_list
+        file_size_list.append(round(os.path.getsize(f"{run_directory_path}/{entry}")/1000000,1))
+        
+    # Run information and file size information is available for viewing via the returned pandas dataframe
+    return pd.DataFrame({'run_info(ftag energy run)':run_directory_list, 'file_size(MB)':file_size_list}).sort_values(by=['file_size(MB)'])
+
+
+def verify_unique_hoi_ftag_tables_in_dots(dots,hoi_file_path):
+    
+    """
+    
+    Verifies which unique hoi ftag tables are in dictionary of dfs and tables. Prints out which exist, which do not exist, and if all exist.
+    
+    Each unique_entry here is a unique run number, but IT IS NOT A UNIQUE FTAG. The tables are constructed by UNIQUE FTAGS not UNIQUE RUNS(unique_entry).
+    
+    EXAMPLE USE:
+        dots = prep_dict_of_dfs_and_tables(f'../defective_runs/')
+        hoi_file_path = 'backups/red_hists_of_interest/150redhists_express_processed1.txt'
+        
+    """
+    
+    # Keep track of how many unique_entries(these are unique runs with associated ftags(tables) do not exist as tables in dots(dots.keys()))
+    cnt = 0
+    
+    # Loop through unique_entries(unique runs with associated ftags(tables), the loop goes through an array of entries that are formatted to match dots.keys() format)
+    for unique_entry in [f"{unique_entry.split(' ')[1]}${unique_entry.split(' ')[0]}$express" for unique_entry in set( verify_hoi_from_file(hoi_file_path) )]:
+        
+        # If the ftag(table) part of the unique_entry does not exist as a table in dots.keys()
+        if unique_entry not in dots.keys():
+            
+            # Update the number of ftags(tables) that do not exist in dots.keys()
+            cnt+=1
+            
+            # Display the ftag(table) that does not exist in dots.keys()
+            print(f"{unique_entry} not in dots")
+         
+        # Otherwise, the ftag(table) part of unique_entry exists in dots.keys() and for this unique_entry, we want to see that it exists, so we display it
+        else:
+            print(unique_entry,'-- exists')
+    # If all ftag(table) parts of unique_entries exist as tables in dots.keys(), say so at the end of the function
+    if cnt == 0:
+        print("All unique_entries exist as a table in dots")
+
+    
 def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory,backup_output_dir):
     
     """
@@ -128,6 +415,10 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
             # Construct the database for each batch with proper input parameters
             build_sql_database('runs2.db', prep_dict_of_dfs_and_tables(f'../defectless_runs/{dir_}/'), 'backups/')
             print(dir_,' Complete.')
+            
+            
+       # Example from construction of defectless histogram database
+       build_sql_database('runs_redhists.db', dots, 'backups/red_hists_of_interest/','backups/database_backup_files/red_without_qual_values/')
         
     """
     
@@ -135,13 +426,16 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
     engine = create_engine(f'sqlite:///{str(db_name)}', echo=False)
 
     
+    status_update_msg('Constructing dict_of_arrs...')
     # Construct dict_of_arrs
     dict_of_arrs = {}
     for idF,paths_txt_file in enumerate([i for i in os.listdir(paths_txt_file_directory) if 'sys' not in i and '.csv' not in i and 'processed' in i]):
         dict_of_arrs[f'arrs_{idF}'] = build_hists_paths_arr(f'{paths_txt_file_directory}{paths_txt_file}')
        
-    
+    status_update_msg('Looping through dict_of_dfs_and_tables...')
     for idT,table in enumerate(dict_of_dfs_and_tables.keys()):
+    
+        print('Processing table',table)
     
         # Gather the meta info that contains the energy, ftag, and stream information for this table
         meta_info = table.split('$')
@@ -184,23 +478,435 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
         try:
             # Construct the backup file for this table as .csv
             hists_of_interest.to_csv(f'{backup_output_dir}{db_name.replace(".","_")}${table}$backup.csv')
-            
+        except Exception as e:
+            print(f'error creating csv(hists_of_interest) for table({table})\n {e}')
+
+        try:
             # Send the concatenated dataframes of interest, for this particular table, to the sql database
-            hists_of_interest.to_sql(table, engine, if_exists='append', index=False)
-            
-            # How far along in the process of preparing the hists_of_interests for this table for this batch of runs? - Also, notify that the table succesfully made it to the database
-            print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table exists and has been saved to database.")
-            
+            hists_of_interest.to_sql(table, engine, if_exists='append')
+        except Exception as e:
+            print(f'error sending hists_of_interest to sql database for table({table}) - Table Empty.\n {e}')
+
+        # How far along in the process of preparing the hists_of_interests for this table for this batch of runs? - Also, notify that the table succesfully made it to the database
+        print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table exists and has been saved to database.")
+        
+        try:
             # Clear the hists_of_interests variable for the next table - we do not want the hists_of_interest from two different tables mixing
             del hists_of_interest
-        except:
-            # How far along in the process of preparing the hists_of_interests for this table for this batch of runs? - Also, notify that the table did not succesfully go to database
-            print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table Empty.")
+        except Exception as e:
+            print(f'error deleteing hists_of_interest for table({table}) - Table Empty.\n {e}')
 
+
+#############################################################
+# ADDING INITIAL QUALITY=0 VALUES TO HISTOGRAMS OF INTEREST #
+#############################################################
+
+
+def init_hists_quality_feature(db_df,db_name,table_name):
+
+    """
+    
+    Initializes the quality feature column to the dataframe 'db_df' in the database 'db_name' whose values are all quality=0.
+    
+    EXAMPLE USE:
+        db_df  = get_dataframe_from_sql('runs.db','SELECT paths,x,y,occ FROM data_hi_express')
+        db_name = 'runs.db'
+        table_name = 'data_hi_express'
+        
+        
+    HOW TO INITIALIZE ALL DFS/TABLES IN DATABASE:
+        for idT,table in enumerate(engine.table_names()):
+            status_update_msg(f'Initializing quality values for table #{idT+1} of {len(engine.table_names())}...')
+            init_hists_quality_feature( get_dataframe_from_sql('runs_redhists.db',f'SELECT paths,x,y,occ FROM {table}'),'runs_redhists.db', table )
+        status_update_msg('---Complete---')
+        
+    """
+    
+    # Initialize all good quality hist 'quality' values to 0. (0 as good, 1 as bad 'quality').
+
+    # Create the quality column and set it to all zeros(good quality)
+    db_df['quality'] = [int(0)]*len(db_df['x'].values)
+
+    # Save the newly edited database
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    db_df.to_sql(table_name,engine, if_exists='replace', index=False)
+
+    
+
+
+##################################################
+# ADDING DEFECT VALUES TO HISTOGRAMS OF INTEREST #
+##################################################
+
+
+def scale_cnvrt_dic(hists_df,index_of_hist_of_interest,x_or_y_axis_as_0or1):
+    
+    """
+    
+    Converts the x or y coordinates(scaled coordinates) from a histogram of interest to the bin coordinates(unscaled coordinates) and returns all these information as
+    the dictionary 'dict_convert'
+    
+    IMPORTANT NOTE!: MAKE SURE THAT THE X/Y axes in the dataframe are columns 1 and 2 respectively. For example an extra column 'index' in the dataframe will return a path and shoot an
+    error that says it cannot convert int to string or something. So drop that extra column from the dataframe.
+    
+    EXAMPLE USE:
+        Using the pMain set of 20 histograms compiled in a previous iteration of the code development, 
+        to convert the 0th histogram's x(as 0) axis...do the following:
+        scale_cnvrt_dic(pMain_hist20,0,0)
+    
+    """
+    
+    # Setting up to convert the scale from the bin numbers (0-98, example only) to the dqm's histogram's scale values (-4.9 to 4.9, example only)
+    
+    # Get a handle for the histogram of interest within hists_df
+    tmp = hists_df[hists_df['paths']==hists_df['paths'].unique()[index_of_hist_of_interest]]
+    
+    # Get a handle for the array of indexes whose range is based off the max size of the x or y coordinate in the histogram of interest
+    tmp_i = np.array([(idx) for idx,i in enumerate(range(int(tmp[tmp.columns[x_or_y_axis_as_0or1+1]].values.max()+1)))])
+    
+    # Get a handle for the array of scaled values that are scaled by tmp_i's minimum and maximum values
+    tmp_int = np.interp(tmp_i,(tmp_i.min(),tmp_i.max()),(-tmp[tmp.columns[x_or_y_axis_as_0or1+1]].values.max()/20,tmp[tmp.columns[x_or_y_axis_as_0or1+1]].values.max()/20))
+    
+    # Round this result
+    tmp_int = tmp_int.round(2)
+    
+    # Prepare the conversion dictionary for this histogram ['bin_coordinate':dqm_scale_value]
+    dict_convert = {}
+    
+    
+    # Loop through the range of values for x or y that is in tmp_i
+    for idx,val in enumerate(tmp_i):
+        
+        # Loop through the scaled values in tmp_int in its entirely for each unscaled  value in tmp_i
+        for idxx,vall in enumerate(tmp_int):
             
+            # If the id of the unscaled value and the scaled value match up
+            if idx==idxx:
+                
+                # And if it is an X coordinate
+                if x_or_y_axis_as_0or1 == 0:
+                    
+                    # Add the scaled coordinate value as the item whose key is the unscaled coordinate in the format of 'x_(unscaled coordinate)'
+                    dict_convert['x_'+str(val)] = vall
+                # Or if it is a Y coordinate
+                else:
+                    
+                    # Add the scaled coordinate value as the item whose key is the unscaled coordinate in the fomrat of 'y_(unscaled coordinate)'
+                    dict_convert['y_'+str(val)] = vall
+
+    return dict_convert
+
+
+def tenths_ceil(num_str):
+    
+    """
+    
+    As part of the scale conversion process, a histogram of interest has scaled coordinate values that include 3 decimal places such as '1.123'. To convert to bin
+    coordinates(unscaled coordinates) these are rounded up in a fashion that is similar to a ceiling function targeting the tenths place of the scaled values. This
+    function processes this rounding mechanism and returns the would be unscaled coordinate value as a floating point number.
+    
+    """
+    
+    # Get num_str as string
+    num_str = str(num_str)
+    
+    # Get num_str_fixed as num_str with the '-' removed if it exists
+    num_str_fixed = num_str.replace('-','')
+    
+    # Create the tuples of ints and decimals
+    int_tups = [('1e'+str(idx),char) for idx,char in enumerate(num_str_fixed.split(".")[0][::-1])]
+    dec_tups = [('1e'+str(-1*idx-1),char) for idx,char in enumerate(num_str_fixed.split(".")[1])]
+    
+    
+    # Loop through decimal tuples
+    for id_,tup in enumerate(dec_tups):
+        
+        
+        # Loop through each individual tuple's decimal value as it loops through tuples in decimals
+        for dec in tup[1]:
+            
+            # if its the first decimal, skip it
+            if id_ == 0:
+                continue
+                
+            # if any other decimals are greater than 0
+            if int(dec) > 0:
+                
+                # num_str is negative, return the negative value truncated to the tenths
+                if '-' in num_str:  
+                    return -1 * ( float( ''.join( [tup[1] for tup in int_tups[::-1]] ) ) + float( '0.'+str ( int(dec_tups[0][1]) ) ) )
+                
+                
+                # its positive, return the postive value's ceiling to the tenths
+                else:
+                    # the tenths place is 9, the hundredths are greater than 0, add 1 to the integer part and zero the rest
+                    if int(dec_tups[0][1]) == 9 and  int(dec_tups[1][1]) > 0:
+                        # We have a float that is greater than 0, a 9 in the tenths place, and a hundredths place greater than 0, round the integer part of the number up
+                        return( [float(tup[1]) for tup in int_tups][0]+1 )
+
+                    # tenths place is not 9 or hundredths place is 0 or both, return the rounded down version of the number
+                    return (float( ''.join( [tup[1] for tup in int_tups[::-1]] ) ) + float( '0.'+str ( int(dec_tups[0][1])+1 ) ))
+                
+                
+    # if none of the previous loops return a value, the num_str was not rounded up, so return the same negative value
+    if '-' in num_str:
+        return -1* ( float(''.join([tup[1] for tup in int_tups[::-1]]))+float('0.'+dec_tups[0][1]) )
+    
+    # else if none of the previous loops return a value, the num_str was not rounded up, so return the same positive value
+    else:        
+        return float(''.join([tup[1] for tup in int_tups[::-1]]))+float('0.'+dec_tups[0][1]) 
+    
+    
+def transform_hitstring(line):
+    
+    """
+    
+    Takes a line in as the format received from the txt_file which was copy/pasted from cern's dqm display on a specific histogram, then extracts the (x_hitcoord,y_hitcoord)
+    
+    EXAMPLE HITSTRING FROM TEXT FILE:
+        line = "Y0-(eta,phi)[OSRatio]=(-1.850,1.723)[7.59e+01]:	6829.0"
+    
+    """
+    
+    # Get a handle for the color identifier string within the line ('R' or 'Y')
+    color_identifier_string=line[0]
+    
+    
+    # Get a handle for the hit number, the id of the defect as it was reported by the dqm algorithm (0 to NredBins/NyellowBins)
+    hit_number = line.replace(line[0],'').split('-',1)[0]
+    
+    # Get a handle for the occupancy value from the hit string. It was discovered that the value reported in the histstring is rounded in some fashion
+    #  by the dqm algorithm as BinsDiffFromStripMedian runs over the histogram. ( occ of 140374 would be rounded up to 140400; 140424 would be rounded to 140400;
+    #  etc).
+    # Do not make this an int, there are float values of occupany present in histograms!
+    occ_val = line.split(':')[1].replace('\t','').split('.')[0]
+    
+    # Extract the x_hitcoord and y_hitcoord from line
+    line = line.replace(color_identifier_string+hit_number+'-'+'(eta,phi)[OSRatio]=','')
+    line = line.split(')')[0]
+    line = line.replace("(",'')
+    line = line.split(',')
+    # The final value for x_hitcoord and y_hitcoord are rounded according to the method descibed by the function 'tenths_ceil()'
+    x_hitcoord, y_hitcoord = tenths_ceil( float( line[0] ) ), tenths_ceil( float ( line[1] ) )
+    
+    # Return a tuple of information from the hit string as seen below
+    return ( x_hitcoord, y_hitcoord, color_identifier_string, hit_number, occ_val )
+
+
+def extract_val_list(txt_file_path):
+    
+    """
+        
+    Extracts the defects from a .txt file containing such defects whose format matches the hit string format of a dqm algorithm.
+    (line = "Y0-(eta,phi)[OSRatio]=(-1.850,1.723)[7.59e+01]:	6829.0"). Collectively, all such processed lines' information is output to a list of tuples called
+    'val_list'
+        
+    txt_file_path requires the pathname with the filename and file extension included.
+    Example: "dir1/dir2/dir3/filename.txt"
+    NOTE: Our current txt_file_path working directory is: "../hist_targets_txt_files/" such that the text file would look like "../hist_targets_txt_files/filename.txt"
+    
+    txt_file Structure:
+    It is a .txt file structured from a paste function after copying from the dqm starting from the line that reads "NRedBins:", then "NYellowBins:", then the lines of most interest.
+    From there, the lines of interest proceed line by line in a format such as the following ...
+    C#-(eta,phi)[OSRatio]=(x_coord,y_coord)[7.59e+01]: occ_val 
+    where
+    C = color character identifier (Y for yellow bin, R for red bin)
+    # = the number of the R/Y bin (if there are NYellowBins=44 then this number will be a number from 0-44)
+    x_coord = the eta or x coordinate location of the point of interest (red or yellow hit)
+    y_coord = the phi or y coordinate location of the point of interest (red or yellow hit)
+    occ_Val = the occupancy value that was recorded at the location (x_coord,y_coord) 
+    
+    val_list Structure:
+    It is a list of tuples whose tuples are each (0-x_hitcoord, 1-y_hitcoord, 2-color_identifier_string, 3-hit_number, 4-occ_val, 5-hist_path, 6-meta_info)
+    val_list = [ (t00,t01,t02,t03,t04,t05,t06), (t10,t11,t12,t13,t14,t15,t16), ..., (tn1,tn2,tn3,tn4,tn5,tn6) ]
+    
+    """
+    
+    
+    # Initialize the val_list
+    val_list = []
+    
+    # Open the text file
+    # directory_path = '../hist_targets_txt_files/'
+    with open(txt_file_path,"r") as f:       
+        
+        
+        # Read the text file line by line and
+        for line in f.readlines():
+            
+            # Skip these two lines
+            if 'NRedBins' in line:
+                continue
+            if 'NYellowBins' in line:
+                continue
+            if 'ClusterMon' in line:
+                hist_path = line.replace('\n','')
+                continue
+            if 'R' not in line and 'Y' not in line:
+                meta_info = line.replace('\n','').split(' ')
+                continue
+            
+            # Get a handle for the transform of the hitstring in each line of txt_file_path to the tuple of values of interest
+            transformed_line = transform_hitstring(line)
+            
+            # (0-x_hitcoord, 1-y_hitcoord, 2-color_identifier_string, 3-hit_number, 4-occ_val, 5-hist_path, 6-meta_info
+            val_list.append( ( transformed_line[0], transformed_line[1], transformed_line[2], transformed_line[3], transformed_line[4], hist_path, meta_info ) )
+    
+    # return the val_list in the format as described above
+    return val_list
+    
+
+def prep_quality_feature(list_of_hists_df, hist_index, val_list):
+        
+    """
+    
+    Adds the quality values for the histogram of interest identified as 'hist_index' which is in the dataframe lists_of_hists_df whose defective quality values are
+    identified by val_list.
+    
+    val_list_xy must be structured as follows - it is a list of tuples whose tuples are each (x_hitcoord,y_hitcoord) such that 
+    val_list_xy = [ (xhc_0,yhc_0), (xhc_1,yhc_1), ..., (xhc_n,yhc_n) ]
+    
+    EXAMPLE USE:
+    
+        list_of_hists_df = dfs  # from a loop inside add_specific_qualityvals_to_hists()
+        hist_index = hist_index # also from a loop inside add_specific_qualityvals_to_hists()
+    
+    """            
+    
+    
+    # Convert our val_list tuple of 5 values to a tuple of 2 coordinate values (x,y)
+    val_list_xy = [(tup[0],tup[1]) for tup in val_list]
+    
+    # If the histogram of interest is in the list of paths that are associated with specific red/yellow hit coordinates (hit_n = (x,y,color,occ,hist_path))
+    if list_of_hists_df['paths'].unique()[hist_index] in [tup[5] for tup in val_list]:
+        
+        # Get a handle for the histogram we are constructing the quality feature for
+        tmp = list_of_hists_df[list_of_hists_df['paths']==list_of_hists_df['paths'].unique()[hist_index]]
+    
+    else:
+        print (f"Error: the unique histogram chosen as hist_index cannot be found for any of the hist_paths in val_list \n{list_of_hists_df['paths'].unique()[hist_index]} not in val_list")
+        # set tmp as an empty dataframe by looking for a subset that does not exist
+        tmp = list_of_hists_df[list_of_hists_df['quality']==9]
+    
+    # Get the coordinate conversion dictionary
+    cnvrt_dic_x, cnvrt_dic_y = scale_cnvrt_dic(list_of_hists_df, hist_index, 0), scale_cnvrt_dic(list_of_hists_df, hist_index, 1)
+    
+    
+    # Loop through the quality values, if the coordinates match the location of the hit, modify their quality value
+    for idx,val in enumerate(tmp['quality'].values):
+        
+        
+        # If the tuple (x,y) from histogram tmp is in the list of (x,y) tuples from the hit value list (val_list_xy)
+        if ( cnvrt_dic_x['x_'+str(int(tmp.iloc[idx, 1]))], cnvrt_dic_y['y_'+str(int(tmp.iloc[idx,2]))] ) in val_list_xy:
+    
+            # Set the quality class for this hit (0/1 for green/red, 0/1/2 for green/yellow/red ...for now we just use 0/1)
+            tmp.iloc[idx, 4] = 1 
+            
+    
+    # Return the list_of_hists_df whose 'quality' values have been updated
+    return tmp
+
+
+def add_specific_qualityvals_to_hists(db_name, quality_val_txtfile):
+
+    """
+    
+    Adds the defective quality values to the range of histograms of interest inside the database 'db_name' using the functino prep_quality_feature(). This is the
+    main function to do this process over an entire database.
+    
+    EXAMPLE USE:
+       db_name = 'runs_redhists.db' 
+       
+       
+    HOW TO VERIFY THE QUALITY VALUES WERE PROPERLY ADDED:
+        engine = create_engine(f'sqlite:///runs_redhists.db', echo=False)
+        cnt=0
+        for idT,table in enumerate(engine.table_names()):
+            df = get_dataframe_from_sql('runs_redhists.db',f'SELECT * FROM {table}')
+            print(table)
+            display(df[df['quality']!=0])
+            cnt += df[df['quality']!=0].shape[0]
+        display(cnt)
+        
+    """
+    
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+
+    
+    # Extract and get a handle for unprocessed_val_list from txt_file_path
+    unprocessed_val_list = extract_val_list(quality_val_txtfile)
+
+    
+    for idT,table in enumerate(engine.table_names()):
+        
+        # Detailed progress bar information
+        print(f'processing table #{idT+1} of {len(engine.table_names())}...')
+        
+        # Get a handle for the meta info from the table
+        meta_info = table.split('$')
+        
+        # Get a handle for dataframes that are the tables in the runs_redhists database and drop the index column
+        dfs = get_dataframe_from_sql(db_name, f'SELECT * FROM {table}')# pd.read_csv(record_path+'express_hist20.csv',index_col=[0])
+        
+        # Convert float columns to integers - needed to do this for the big database as well...
+        dfs['y'] = [int(a) for a in dfs['y'].values]
+        
+        # Extract and get a handle for val_list from txt_file_path
+        unprocessed_val_list = extract_val_list(quality_val_txtfile)
+        
+        # Get a handle for the unique paths before the process mixes up the order
+        paths = dfs['paths'].unique()
+        
+        
+        # Loop through the unique hist values in the dataframe to update each histogram of interest's quality feature
+        for hist_index,path in enumerate(paths):
+            
+            # More detailed progress bar information
+            print(f"hist_index #{hist_index+1} of {len(dfs['paths'].unique())} processing...")
+
+            # Initialize the processed_val_list
+            val_list = []
+        
+            # loop through the vals in unprocessed_val_list
+            for idV,val in enumerate(unprocessed_val_list):
+            
+                # If the table matches the current table and the path is in the current tuple val
+                if f"{val[6][1]}${val[6][0]}$express" == table and path in val[5]:
+                    
+                    # This target value is in this table and dataframe and its information should be stored in val_list                    
+                    val_list.append(val)            
+            
+            # Get a subset that does not include unique()[hist_index]
+            tmp = dfs[dfs['paths']!=path]
+
+            # Prepare the modified quality values
+            tmp2 = prep_quality_feature(dfs, hist_index, val_list)
+
+            # Concatenate the processed histogram with the rest of the histograms
+            dfs = pd.concat([tmp2,tmp])
+    
+    
+        # Clean this variable AFTER the loop finishes
+        del unprocessed_val_list
+
+        print(f'saving backups to csvs and tables to database for table {table}')
+
+        # Save the dataframe (table in database) as a table_backup.csv
+        dfs.to_csv(f'{meta_info[0]}${meta_info[1]}${meta_info[2]}$backups.csv')
+
+        # Save the dataframe(table in database) as a replacement table with the newly created quality feature for this table
+        dfs.to_sql(table, engine, if_exists='replace', index=False)
+
+        
+###########################
+# POST DATABASE FUNCTIONS #
+###########################
+
+
 def get_dataframe_from_sql(db_name,query):
     
     """
+    
     Simplified way to extract dataframe from sqlite3 database.
     
     CURRENT TABLES:
@@ -225,43 +931,58 @@ def get_dataframe_from_sql(db_name,query):
     
     """
     
-    
+    # Get a handle for the sqlalchemy engine that allows commands to be executed over the database 'db_name'
     engine = create_engine(f'sqlite:///{db_name}', echo=False)
     
-    
+    # Try to get a dataframe who is based on a sql 'query' from the database identified in 'engine'
     try:
         df = pd.read_sql(query,engine)
-    except:
-        print('ERROR: false query? or engine error?')
+    except Exception as e:
+        print(e)
     
-    # Free up system resources
+    # Try to free up system resources
     try:
         del engine
-    except:
-        pass
+    except Exception as e:
+        print(e)
+    
+    # Try to remove the index column if it exists in the df
+    try:
+        if 'index' in df.columns:
+            df = df.drop(columns='index')
+    except Exception as e:
+        print(e)
     
     return df    
   
-  
+
 def create_db_backup_csvs(db_name,output_dir):
     
     """
-    The build_sql_database() function should now build these backups itself, if that works then this will not initially be needed, but it is useful for constructing
-    new backups as the files are further processed such as when adding the quality feature(binary mask of target values). 
-    This has been tested to work assuming the database itself has not been corrupted.
-    
     EXAMPLE USE:
         db_name = 'runs2.db'
         output_dir = 'backups/'  #must have '/' at the end of the path
     """
     
+    # Get database handle
     engine = create_engine(f'sqlite:///{db_name}', echo=False)
     
-    for table in engine.table_names():
+    # Loop through tables in database
+    for idT,table in enumerate(engine.table_names()):
+        
+        # Notication of loop status
+        status_update_msg(f'saving table #{idT+1} of {len(engine.table_names())} to .csv')
+        
+        # Try to get the data from the table as a dataframe
         try:
             get_dataframe_from_sql(db_name,f'SELECT * FROM {table}').to_csv(f'{output_dir}{db_name.replace(".","_")}${table}$backup.csv')
-        except:
-            print(f'TABLE({table}) CORRUPTED - RECREATE!')
+            
+        # If it doesnt work, print an exception
+        except Exception as e:
+            print(e)
+            
+    # Notify that the verification is complete
+    print('Complete.')
             
             
 def test_database_for_corruption(db_name):
@@ -285,46 +1006,33 @@ def rebuild_db_from_backup_csvs(db_name,db_table_backup_csvs_path):
     
     """
     
-    Use this function in case you need to rebuild a corrupt database from backup files. - Untested as of yet
+    Use this function in case you need to rebuild a corrupt database from backup files. To rebuild, first delete the runs database that is corrupst as it will not allow opening to replace)
+    If instead, you are overwritting a noncorrupt database with a backup from the .csv files, deleting the database is not necessary.
     
     EXAMPLE USE:
-        db_name = 'runs2.db'
-        db_table_backup_csvs_path = 'backups/'
+       # For the defective histograms
+       rebuild_db_from_backup_csvs('runs_redhists.db','backups/database_backup_files/red_without_qual_values/')
+       
     """
     
     # Construct the sql engine for db_name
     engine = create_engine(f'sqlite:///{db_name}', echo=False)
     
+    
     # Loop through backup csvs in the backup csv directory
     for backup_csv in [i for i in os.listdir(db_table_backup_csvs_path) if 'backup.csv' in i]:
-        
+    
+        # Progress notification on which backup_csv we are currently working on
+        status_update_msg(f'rebuilding {backup_csv}')
+    
         # Get the meta_info for this backup_csv
         meta_info = backup_csv.split('$')
         
         # Construct the dataframe from the backup csv
-        df = pd.read_csv(backup_csv)
+        df = pd.read_csv(db_table_backup_csvs_path+backup_csv,index_col=[0])
         
         # Send that csv to the sql database whose table name is based on the meta info
         df.to_sql(f"{meta_info[1]}${meta_info[2]}${meta_info[3]}", engine, if_exists='replace')
-    
-        
-def init_goodhists_quality_feature(db_df,db_name,table_name):
-
-    """
-    EXAMPLE USE:
-        df_db  = get_dataframe_from_sql('runs.db','SELECT paths,x,y,occ FROM data_hi_express')
-        db_name = 'runs.db'
-        table_name = 'data_hi_express'
-    """
-    
-    # Initialize all good quality hist 'quality' values to 0. (0 as good, 1 as bad 'quality').
-
-    # Create the quality column and set it to all zeros(good quality)
-    db_df['quality'] = [int(0)]*len(db_df['x'].values)
-
-    # Save the newly edited database
-    engine = create_engine(f'sqlite:///{db_name}', echo=False)
-    db_df.to_sql(table_name,engine, if_exists='replace', index=False)
     
     
     
@@ -332,6 +1040,7 @@ def init_goodhists_quality_feature(db_df,db_name,table_name):
 # MAIN RUN OF THS SCRIPT #
 ##########################
 
+# DEFECTLESS HISTOGRAMS - needs confirmation, but this is a rough sketch of what it looks like
 # Constructing the sql database from the directory containing the batch folders of run files/folders
 
 for dir_ in os.listdir('../defectless_runs/'):
@@ -357,3 +1066,25 @@ for table in engine.table_names():
 # With the newly constructed quality features for the good histograms, we create backups of this
 
 create_db_backup_csvs('runs2.db','backups/qual_processed/')
+
+                       
+                       
+# GETTING A FEW HISTOGRAM HEATMAPS/BINARY MASKS for VISUALIZATION
+df = get_dataframe_from_sql('runs_redhists.db','SELECT * FROM data18_13TeV$f1001_h327$express')
+for idU,unique_path in enumerate(df['paths'].unique()):
+    if idU==2:
+        break
+        
+    sns.heatmap( df[df['paths']==unique_path].pivot_table(index='y', columns='x', values='occ') )
+    plt.gca().invert_yaxis()
+    plt.title(f'OCCUPANCY: \ndata18_hi,f1027_h331,express \n{unique_path}')
+    plt.xlabel(r'$\eta$')
+    plt.ylabel(r'$\phi$')
+    plt.show()
+    
+    sns.heatmap( df[df['paths']==unique_path].pivot_table(index='y', columns='x', values='quality') )
+    plt.title(f'BINARY MASK: \ndata18_hi,f1027_h331,express \n{unique_path}')
+    plt.xlabel(r'$\eta$')
+    plt.ylabel(r'$\phi$')
+    plt.gca().invert_yaxis()
+    plt.show()
