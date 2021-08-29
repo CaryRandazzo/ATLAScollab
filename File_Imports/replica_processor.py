@@ -15,7 +15,78 @@ def status_update_msg(msg):
     clear_output(wait=True)
     print(msg)
     return
-  
+
+
+def what_replicas_to_request(input_filename, stream):
+    
+    """
+    
+    Rucio requests take a specific format. This takes the lines we processed previously in postprocessed_hist_file() and turns the lines into the individual requests needed from rucio
+    with their appropriate format.
+    
+    EXAMPLE FORMAT for a data18_hi request:
+        data18_hi:data18_hi.00366526.express_express.merge.HIST.f1030_h333
+    
+    EXAMPLE USE:
+        input_filename = 'backups/green_hists_of_interest/express_good_hists2.txt'
+        stream = 'express'
+        
+    EXAMPLE OUTPUT:
+        data18_hi:data18_hi.00366142.express_express.merge.HIST.f1027_h331
+        ...etc like this
+    
+    """
+    
+    # Determine the format of the stream for the request
+    if stream == 'express':
+        stream = 'express_express'
+    elif stream == 'physics_Main':
+        stream = 'physics_Main'  
+    elif stream == 'pMain':
+        stream = 'physics_Main'
+        
+    
+    # Open the file that contains the final processed histograms and meta information
+    with open(input_filename) as f:    
+    
+        # Initialize the variable that will tell us how many requests we have in total    
+        cnt=0
+        
+        # Read through each line of the file
+        for line in f.readlines():
+            
+            
+            # Remove the return characters
+            line = line.replace('\n','')
+            
+            # If this line contains run in it, it must be a 'run-line'
+            if 'run' in line:
+                
+                # Update the number of requests we will have to make
+                cnt+=1
+                
+                # So get a handle for the different pieces of this run-line
+                line = line.split(' ')
+                
+                # The run, then is line[0]
+                run = line[0]
+                
+                # The ftag, then is line[1]
+                ftag = line[1]
+                
+                # And the energy then is line[2] (in the unfortunate first time formatting of this file some energy was left blank and all were data18_hi so handle this)
+                try:
+                    energy = line[2]
+                except:
+                    energy = 'data18_hi'
+                    
+                # Print the appropriate request format depending on the energy type
+                print(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")                
+
+                
+        # Display the number of requests we will have to make
+        print(f'Number of Requests: {cnt}')
+        
 
 def prep_dict_of_dfs_and_tables(replica_folders_path):
     
