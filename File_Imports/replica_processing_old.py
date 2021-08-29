@@ -158,7 +158,7 @@ def what_replicas_to_request(input_filename, stream):
         data18_hi:data18_hi.00366526.express_express.merge.HIST.f1030_h333
     
     EXAMPLE USE:
-        input_filename = 'backups/express_good_hists2.txt'
+        input_filename = 'backups/green_hists_of_interest/express_good_hists2.txt'
         stream = 'express'
         
     EXAMPLE OUTPUT:
