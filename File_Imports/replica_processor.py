@@ -1180,26 +1180,31 @@ def split_hists(dataset,train_size):
     EXAMPLE USE:
         train_set,test_set = split_hists(tensor_list[0],0.7)
         
-    IMPORTANT NOTE:
-        This function will need to be run over the entire list of tensors present inside of tensor_list. Example follows.
+    TO GENERATE 'train_sets' and 'test_sets' FROM split_hists(), USE THE FOLLOWING:
+    
+        NOTE: tensor_list is generated from load_hists_dataset_matrices(). Note also, that tensor_list will have to exist as a variable in the system at the time
+        of running this code in this comment block below.
+    
+        # Initialize train_sets and test_sets
+        train_sets,test_sets = [],[]
         
-        # Initialize the list of training sets and testing sets
-        train_sets = []
-        test_sets = []
+        # Initialize the table/tensor id
+        idT = 0
         
-        # Loop through the tensors in tensor_list
-        for idT,tensor in enumerate(tensor_list):
+        # Loop over the tensor/table in tensor_list
+        for tensor in tensor_list:
         
-            # Get the train_set and test_set from the idTh tensor by way of the split_hists function 
+            # get the train_set,test_set associated with this table/tensor
             train_set,test_set = split_hists(tensor_list[idT],0.7)
             
-            # Add the train set to the training_sets list
+            # Append train_sets with train_set
             train_sets.append(train_set)
             
-            # Add the test set to the test_sets list
+            # Append test_sets with test_set
             test_sets.append(test_set)
             
-        # Now if you want, you can concatenate all these together into a single tensor
+            # Update the iterator
+            idT += 1
         
     display(train_set.shape)
     # 1st dimension is number of datasets in this training set. (feature_values are the 0th part of this dimension, target_values are the 1st value of this dimension)
@@ -1255,30 +1260,8 @@ def format_traintest_as_numpy_for_ML(train_sets,test_sets):
     
     Takes as input the train_sets and test_sets generated from the previous function. Outputs the final formatted version of the numpy tensors for ML with Keras.
     
-    TO GENERATE 'train_sets' and 'test_sets' FROM split_hists(), USE THE FOLLOWING:
-    
-        # Initialize train_sets and test_sets
-        train_sets,test_sets = [],[]
-        
-        # Initialize the table/tensor id
-        idT = 0
-        
-        # Loop over the tensor/table in tensor_list
-        for tensor in tensor_list:
-        
-            # get the train_set,test_set associated with this table/tensor
-            train_set,test_set = split_hists(np_tensor[idT],0.7)
-            
-            # Append train_sets with train_set
-            train_sets.append(train_set)
-            
-            # Append test_sets with test_set
-            test_sets.append(test_set)
-            
-            # Update the iterator
-            idT += 1
+    See the previous notes on split_hists() on how to generate train_sets, test_sets.
 
-    
     """
     
     # TRAIN SET PROCESSING
@@ -1295,12 +1278,36 @@ def format_traintest_as_numpy_for_ML(train_sets,test_sets):
     # Loop through train sets
     for table_tensor in train_sets:
 
+        
+        # Loop through the numerical size values in table_tensor.shape
+        for shape in table_tensor.shape:
+            
+            # If there is any shape with a size of 0
+            if shape == 0:
+                
+                # Set the skip_table bool to True so that we skip this table
+                print('shape is 0 in table',idTable, 'skipping table')
+                skip_table = True
+        
+        # If the bool skip_table is True
+        if skip_table == True:
+            
+            # Skip the table, update the iterator, and continue the loop
+            print('skipping table')
+            skip_table = False
+            idTable += 1
+            continue
+        
         # Progress bar by table in train sets
         print('\ntrain_sets, table_tensor id:', idTable,'-',table_tensor.shape)
 
         # Show how idTable==0 was handled
-        if idTable == 0:
-                print(f'skipping table 0, features:{final_features_dataset.shape}, targets:{final_targets_dataset.shape}')
+        if idTable == 0:            
+            
+            # Show the features and targets for the initial table, skip this table because it was initialized as this, update the iterator, and continue
+            print(f'skipping table 0, features:{final_features_dataset.shape}, targets:{final_targets_dataset.shape}')
+            idTable += 1
+            continue
 
         # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
         final_features_dataset = np.concatenate([ final_features_dataset, train_sets[idTable][0] ])
@@ -1326,12 +1333,36 @@ def format_traintest_as_numpy_for_ML(train_sets,test_sets):
     # Loop through test_sets 
     for table_tensor in test_sets:
 
+        
+        # Loop through the numerical size values in table_tensor.shape
+        for shape in table_tensor.shape:
+            
+            # If there is any shape with a size of 0
+            if shape == 0:
+                
+                # Set the skip_table bool to True so that we skip this table
+                print('shape is 0 in table',idTable, 'skipping table')
+                skip_table = True
+                
+        # If the bool skip_table is True                
+        if skip_table == True:
+            
+            # Skip the table, update the iterator, and continue the loop
+            print('skipping table')
+            skip_table = False
+            idTable += 1
+            continue
+        
         # progress bar by table in test_sets
         print('\ntest_sets, table_tensor id:', idTable,'-',table_tensor.shape)
 
         # Show how idTable==0 was handled
         if idTable == 0:
-                print(f'skipping table 0, features:{final_features_dataset_test.shape}, targets:{final_targets_dataset_test.shape}')
+
+            # Show the features and targets for the initial table, skip this table because it was initialized as this, update the iterator, and continue
+            print(f'skipping table 0, features:{final_features_dataset_test.shape}, targets:{final_targets_dataset_test.shape}')
+            idTable +=1
+            continue
 
         # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
         final_features_dataset_test = np.concatenate([ final_features_dataset_test, test_sets[idTable][0] ])
