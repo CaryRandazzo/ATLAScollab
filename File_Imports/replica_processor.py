@@ -1224,12 +1224,24 @@ def format_traintest_as_numpy_for_ML(train_sets,test_sets):
     # Loop through train sets
     for table_tensor in train_sets:
 
+        for shape in table_tensor.shape:
+            if shape == 0:
+                print('shape is 0 in table',idTable, 'skipping table')
+                skip_table = True
+        if skip_table == True:
+            print('skipping table')
+            skip_table = False
+            idTable += 1
+            continue
+        
         # Progress bar by table in train sets
         print('\ntrain_sets, table_tensor id:', idTable,'-',table_tensor.shape)
 
         # Show how idTable==0 was handled
         if idTable == 0:
                 print(f'skipping table 0, features:{final_features_dataset.shape}, targets:{final_targets_dataset.shape}')
+                idTable += 1
+                continue
 
         # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
         final_features_dataset = np.concatenate([ final_features_dataset, train_sets[idTable][0] ])
@@ -1255,12 +1267,24 @@ def format_traintest_as_numpy_for_ML(train_sets,test_sets):
     # Loop through test_sets 
     for table_tensor in test_sets:
 
+        for shape in table_tensor.shape:
+            if shape == 0:
+                print('shape is 0 in table',idTable, 'skipping table')
+                skip_table = True
+        if skip_table == True:
+            print('skipping table')
+            skip_table = False
+            idTable += 1
+            continue
+        
         # progress bar by table in test_sets
         print('\ntest_sets, table_tensor id:', idTable,'-',table_tensor.shape)
 
         # Show how idTable==0 was handled
         if idTable == 0:
                 print(f'skipping table 0, features:{final_features_dataset_test.shape}, targets:{final_targets_dataset_test.shape}')
+                idTable +=1
+                continue
 
         # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
         final_features_dataset_test = np.concatenate([ final_features_dataset_test, test_sets[idTable][0] ])
