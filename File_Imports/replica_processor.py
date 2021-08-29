@@ -1035,6 +1035,320 @@ def rebuild_db_from_backup_csvs(db_name,db_table_backup_csvs_path):
         df.to_sql(f"{meta_info[1]}${meta_info[2]}${meta_info[3]}", engine, if_exists='replace')
     
     
+#########################################################
+# CONSTRUCTING AND FORMATTING TENSORS FOR ML OPERATIONS #
+#########################################################
+
+def load_hists_dataset_matrices(db_name):
+    
+    """
+    
+    Assuming express hists as .csvs and pMain hists as .csvs have been constructed from the .py script,  this function will
+    load and construct the training and target matrices for the CNN.
+    
+    IMPORTANT NOTE: We don't actually need to keep track of the runs that we train the model with because its just going to be used for future predictions over histograms whose run
+    numbers we WILL know. Therefore, it is not necessary to keep track of this.
+    
+    tensor_list is 5d.    
+    Let the example tensor_list be of shape (18,2,24,65,99)
+    1st dimension is the number of tables. (based on the number of unique 'ftag energy stream' combinations)
+    2nd dimension is the number of datasets. There are only two. (feature_set(0) or target_set(1))
+    3rd dimension is the number of histograms.
+    4th dimension is the number of y coordinates.
+    5th dimension is the number of x coordinates.
+    Therefore, calling tensor_list[0][0][0] will return a matrix that is the feature set for the 1st histogram in the first table of the database. Its shape will be of size (65,99)
+    
+    """
+    
+    engine = create_engine(f'sqlite:///{db_name}', echo=False)
+    
+    # Initialize list of tensors from tables
+    tensor_list = []
+    
+    # Load the datasets
+    for idT, table in enumerate(engine.table_names()):
+        
+        progress_bar(idT,engine.table_names())
+        
+        # Get a handle for the dataframes 'dfs' from table 'table' in database 'db_name' 
+        dfs = get_dataframe_from_sql(db_name,f'SELECT * FROM {table}')
+    
+        # Initialize the feature_set that will contain our feature variable matrices
+        feature_set = []
+
+        # Initialize the target_set that will contain our target variable matrices
+        target_set = []
+
+        
+        # Loop through the unique histograms in the dataframe of histograms 'dfs'
+        for idH,hist in enumerate(dfs['paths'].unique()):
+            
+            # Get a handle for each unique histogram we pass in the loop
+            df_tmp = dfs[dfs['paths']==hist]
+            
+            # Append the feature set in the format appropriate for the tensor as a numpy tensor
+            feature_set.append(df_tmp.pivot_table(index='y',columns='x',values='occ').to_numpy())
+            
+            # Do the same as above, but for the target set
+            target_set.append(df_tmp.pivot_table(index='y',columns='x',values='quality').to_numpy())
+            
+        # Add each such feature_set,target_set combination to a list of tensors, each entry into this list containing the dataset,histogram,xcoordinate,ycoordinate information for
+        # the table 'table' in this interation of the loop
+        tensor_list.append( np.stack([np.array(feature_set),np.array(target_set)]) )
+    
+    return tensor_list
+
+
+def split_hists(dataset,train_size):
+    
+    """
+    
+    Takes the dataset that we constructed from the previous assumptions, reads it in as a (2(features,targets),histograms,eta,phi)  shaped tensor,
+    randomizes the histograms in the dataset so they arent organized by any sort of run number, then splits them into their respective training and testing sets.
+    
+    EXAMPLE USE:
+        train_set,test_set = split_hists(tensor_list[0],0.7)
+        
+    IMPORTANT NOTE:
+        This function will need to be run over the entire list of tensors present inside of tensor_list. Example follows.
+        
+        # Initialize the list of training sets and testing sets
+        train_sets = []
+        test_sets = []
+        
+        # Loop through the tensors in tensor_list
+        for idT,tensor in enumerate(tensor_list):
+        
+            # Get the train_set and test_set from the idTh tensor by way of the split_hists function 
+            train_set,test_set = split_hists(tensor_list[idT],0.7)
+            
+            # Add the train set to the training_sets list
+            train_sets.append(train_set)
+            
+            # Add the test set to the test_sets list
+            test_sets.append(test_set)
+            
+        # Now if you want, you can concatenate all these together into a single tensor
+        
+    display(train_set.shape)
+    # 1st dimension is number of datasets in this training set. (feature_values are the 0th part of this dimension, target_values are the 1st value of this dimension)
+    # 2nd dimension is number of histograms in this training set.
+    # 3rd dimension is their y coordinates.
+    # 4th dimension is their x coordinates.
+    
+    test_set.shape
+    # 1st dimension is number of datasets in this test set. (feature_values are the 0th part of this dimension, target_values are the 1st value of this dimension)
+    # 2nd dimension is number of histograms in this training set.
+    # 3rd dimension is their y coordinates.
+    # 4th dimension is their x coordinates.
+    
+    TO VERIFY THAT FUNCTION WORKS AS SHOULD:
+    # Make sure everything looks as it should
+    # display(train_set.shape)
+    # display(test_set.shape)
+    # print(round(100*train_set[0].shape[0]/round(load_hist20_dataset_matrices()[0].shape[0])),'%\n')
+    # print(round(100*test_set[0].shape[0]/round(load_hist20_dataset_matrices()[1].shape[0])),'%')
+    
+    """
+    
+    # Initialize the list that will store the random indexes
+    ri_list = []
+
+    # Loop through the number of matrices
+    for i in range(dataset[0].shape[0]):
+
+        # Get a random index
+        ri = np.random.randint(dataset[0].shape[0])
+
+        # While that integer is in the random integer list, keep looking for a random integer that isnt in there
+        while ri in ri_list:
+            ri = np.random.randint(dataset[0].shape[0])
+
+        # Then append that random integer to the list
+        ri_list.append(ri) 
+
+    # Construct the training and testing matrix index list
+    train_set_index = ri_list[0:round(train_size*dataset[0].shape[0])]
+    test_set_index = ri_list[round(train_size*dataset[0].shape[0]):dataset[0].shape[0]]
+    
+    # Construct the set of matrixes from the matrix index lists
+    train_set = np.stack([np.array([matrix for matrix in dataset[0][train_set_index]]),np.array([matrix for matrix in dataset[1][train_set_index]])])
+    test_set = np.stack([np.array([matrix for matrix in dataset[0][test_set_index]]),np.array([matrix for matrix in dataset[1][test_set_index]])])
+
+    return train_set, test_set
+
+
+def format_traintest_as_numpy_for_ML(train_sets,test_sets):
+    
+    """
+    
+    Takes as input the train_sets and test_sets generated from the previous function. Outputs the final formatted version of the numpy tensors for ML with Keras.
+    
+    TO GENERATE 'train_sets' and 'test_sets' FROM split_hists(), USE THE FOLLOWING:
+    
+        # Initialize train_sets and test_sets
+        train_sets,test_sets = [],[]
+        
+        # Initialize the table/tensor id
+        idT = 0
+        
+        # Loop over the tensor/table in tensor_list
+        for tensor in tensor_list:
+        
+            # get the train_set,test_set associated with this table/tensor
+            train_set,test_set = split_hists(np_tensor[idT],0.7)
+            
+            # Append train_sets with train_set
+            train_sets.append(train_set)
+            
+            # Append test_sets with test_set
+            test_sets.append(test_set)
+            
+            # Update the iterator
+            idT += 1
+
+    
+    """
+    
+    # TRAIN SET PROCESSING
+    
+    # Initialize table id idTable - looping through tensors doesnt allow you to immediate have access to the ids unless enumerate gives you access to everything in the tensor and ids
+    # So we initialize it outisde of the loop. Probably cleaner this way anyway.
+    idTable = 0
+
+    # Initialize these as the first table's features and first table's targets
+    final_features_dataset = train_sets[0][0]
+    final_targets_dataset = train_sets[0][1]
+
+
+    # Loop through train sets
+    for table_tensor in train_sets:
+
+        # Progress bar by table in train sets
+        print('\ntrain_sets, table_tensor id:', idTable,'-',table_tensor.shape)
+
+        # Show how idTable==0 was handled
+        if idTable == 0:
+                print(f'skipping table 0, features:{final_features_dataset.shape}, targets:{final_targets_dataset.shape}')
+
+        # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
+        final_features_dataset = np.concatenate([ final_features_dataset, train_sets[idTable][0] ])
+
+        # Construct the final_targets_dataset as all the histograms concatenated across all 18 tables 
+        final_targets_dataset = np.concatenate([ final_targets_dataset, train_sets[idTable][1] ])
+
+
+        # Update the iterator for what table we are on
+        idTable += 1
+        
+    
+    # TEST SET PROCESSING
+    
+    # Initialize table id idTable
+    idTable = 0
+
+    # Initialize table id idTable - looping through tensors doesnt allow you to immediate have access to the ids unless enumerate gives you access to everything in the tensor and ids
+    # So we initialize it outisde of the loop. Probably cleaner this way anyway.
+    final_features_dataset_test = test_sets[0][0]
+    final_targets_dataset_test = test_sets[0][1]
+
+    # Loop through test_sets 
+    for table_tensor in test_sets:
+
+        # progress bar by table in test_sets
+        print('\ntest_sets, table_tensor id:', idTable,'-',table_tensor.shape)
+
+        # Show how idTable==0 was handled
+        if idTable == 0:
+                print(f'skipping table 0, features:{final_features_dataset_test.shape}, targets:{final_targets_dataset_test.shape}')
+
+        # Construct the final_features_dataset as all the histograms concatenated across all 18 tables 
+        final_features_dataset_test = np.concatenate([ final_features_dataset_test, test_sets[idTable][0] ])
+
+        # Construct the final_targets_dataset as all the histograms concatenated across all 18 tables 
+        final_targets_dataset_test = np.concatenate([ final_targets_dataset_test, test_sets[idTable][1] ])
+
+        # Visualize the dataset shapes as they get concatenated
+        print(final_features_dataset_test.shape)
+        print(final_targets_dataset_test.shape)
+
+        # Update the iterator for what table we are on
+        idTable += 1
+        
+    
+    # Reshape final_features_dataset so its in the format needed for our future ML stuff
+    final_features = final_features_dataset.reshape(1,final_features_dataset.shape[0],final_features_dataset.shape[1],final_features_dataset.shape[2])
+    
+    # Reshape final_targets_dataset so its in the format needed for our future ML stuff
+    final_targets = final_targets_dataset.reshape(1,final_targets_dataset.shape[0],final_targets_dataset.shape[1],final_targets_dataset.shape[2])
+    
+    # Construct the final_train_set by concatenating the features/targets from the previous two
+    final_train_set = np.concatenate( [final_features,final_targets] )
+    
+    # Reshape final_features_dataset_test so its in the format needed for our future ML stuff
+    final_features2 = final_features_dataset_test.reshape(1,final_features_dataset_test.shape[0],final_features_dataset_test.shape[1],final_features_dataset_test.shape[2])
+    
+    # Reshape final_targets_dataset_test so its in the format needed for our future ML stuff
+    final_targets2 = final_targets_dataset_test.reshape(1,final_targets_dataset_test.shape[0],final_targets_dataset_test.shape[1],final_targets_dataset_test.shape[2])
+    
+    # Construct the final_test_set by concatenating the features/targets from the previous two
+    final_test_set = np.concatenate( [final_features2,final_targets2] )
+    
+    return final_train_set, final_test_set
+
+
+def save_traintest_sets(train_set,test_set,train_save_file,test_save_file):
+
+    """
+    
+    Saves the formatted train and test numpy tensors as .npy files.
+    
+    EXAMPLE USE:
+        train_save_file = 'train_set.npy'
+        test_save_file = 'test_set.npy'
+        
+    """
+    
+    # Open a file to store the numpy matrix in
+    with open(train_save_file, 'wb') as f:
+
+        # Save the matrix
+        np.save(f, train_set)
+        print('train_set saved')
+
+    # Open a file to store the numpy matrix in
+    with open(test_save_file, 'wb') as f:
+
+        # Save the matrix
+        np.save(f, test_set)
+        print('test_set_saved')
+
+
+def load_saved_traintest_set(train_set_filename, test_set_filename):
+
+    """
+    
+    Loads the saved train and test numpy tensors from the previously saved .npy files.
+    
+    EXAMPLE USE:
+    train_set,test_set = load_saved_traintest_set('train_set.npy','test_set.npy')
+    
+    """
+
+    # Open the file that train_set is stored in as f
+    with open(train_set_filename, 'rb') as f:
+
+        # Load and get a handle for train_set
+        train_set = np.load(f)
+
+    # Open the file that train_set is stored in as f
+    with open(test_set_filename, 'rb') as f:
+
+        # Load and get a handle for test_set
+        test_set = np.load(f)
+        
+    return train_set,test_set
+
     
 ##########################
 # MAIN RUN OF THS SCRIPT #
