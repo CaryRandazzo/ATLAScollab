@@ -1,4 +1,4 @@
-#For Machine Learning
+# Use this file as shortcut import to import all Machine Learning imports that you may need in a project
 
 #Processing
 from sklearn.model_selection import train_test_split
