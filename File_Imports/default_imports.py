@@ -1,6 +1,12 @@
+# Use this file as a shortcut import to import all commonly used packages
+
+# CERN's ROOT package
 import ROOT
-from IPython.display import clear_output
+
+
+# Collection of standard packages (matplotlib, pandas, numpy, etc)
 import pyforest
-# import matplotlib.pyplot as plt
-# import numpy as np
-# import matplotlib.pyplot as plt
+
+
+# Other packages
+from IPython.display import clear_output
