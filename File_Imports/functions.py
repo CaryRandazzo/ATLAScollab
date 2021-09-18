@@ -14,53 +14,60 @@ from default_imports import *
 ######################
 
 
-#PREPROCESS THE HIST TO A DATAFRAME
+
 def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):  
-    #main loop
+    
+    """
+    
+    Preprocesses ROOT runfile histogram to data
+    
+    """
+    
+    # Main loop
     for key in tf.GetListOfKeys():    
         input = key.ReadObj()
 
-        #determine if the location in the file we are at is a directory
+        # Determine if the location in the file we are at is a directory
         if issubclass(type(input),ROOT.TDirectoryFile):
            
-            #record the path of the directory we are looking in
+            # Record the path of the directory we are looking in
             try:
                 f_path = input.GetPath() 
             except:
                 print("cant GetPath")
 
-            #split the path by '/' so we can determine where we are in the folder structure        
+            # Split the path by '/' so we can determine where we are in the folder structure        
             try:
                 split_path = f_path.split("/")
             except:
                 print('cant split_path')            
             
             
-            #recursively go deeper into the file structure depending on the length of split_path
+            # Recursively go deeper into the file structure depending on the length of split_path
 #             if len(split_path) == 3:
             if 'run' in split_path[-1]:
-                #we are 2 directories deep, go deeper
+                # We are 2 directories deep, go deeper
                 f_path,f_path_list, binNums,binNumsY, occupancies = processHistML(input,file,f_path, f_path_list, binNums,binNumsY, occupancies)  
             elif len(split_path) > 3 and any(folder in split_path for folder in ('CaloMonitoring', 'Jets','MissingEt','Tau','egamma')):                
-                #we are greater than 3 directories deep and these directories include the specified folders above, goo deeper
+                # We are greater than 3 directories deep and these directories include the specified folders above, goo deeper
                 f_path, f_path_list, binNums,binNumsY, occupancies = processHistML(input,file,f_path, f_path_list, binNums,binNumsY, occupancies)     
             else:
                 pass
             
-            #record the file_path that will result now that we are done with the current folder level
-            #i.e. the folder path that results from going up a level in the directory
+            # Record the file_path that will result now that we are done with the current folder level
+            #  i.e. the folder path that results from going up a level in the directory
             f_path = f_path.split('/')
             f_path = '/'.join(f_path[:-1])
                 
         elif issubclass(type(input), ROOT.TProfile):
             
-            #record te path of the directory we are looking in with the name of the hist file as part of the path
+            # Record te path of the directory we are looking in with the name of the hist file as part of the path
             try:
                 f_path_tp = f_path + '/' + input.GetName()                
             except:
                 print("cant GetPath3")
             
-            #get the part of f_path that follows the ':'
+            # Get the part of f_path that follows the ':'
             f_path_tp = f_path_tp.split(':')
             f_path_tp = f_path_tp[1][1:]
             
@@ -68,7 +75,7 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
             hist_file = file.Get(f_path_tp)
             binsX = hist_file.GetNbinsX()                                    
             
-            #setup the 3 arrays for creating the dataframe
+            # Setup the 3 arrays for creating the dataframe
             for binX in range(binsX+1):
                 f_path_list.append(f_path_tp)
                 binNum = hist_file.GetBin(binX)
@@ -78,13 +85,13 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
             
         elif issubclass(type(input),ROOT.TH2):
 
-            #record the path of the directory we are looking in with the name of the hist file as part of the path
+            # Record the path of the directory we are looking in with the name of the hist file as part of the path
             try:
                 f_path_th2 = f_path + '/' + input.GetName()                
             except:
                 print("cant GetPath3")
             
-            #get the part of f_path that follows the ':'
+            # Get the part of f_path that follows the ':'
             f_path_th2 = f_path_th2.split(':')
             f_path_th2 = f_path_th2[1][1:]
             
@@ -93,7 +100,7 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
             binsX = hist_file.GetNbinsX()                        
             binsY = hist_file.GetNbinsY()
             
-            #setup the 3 arrays for creating the dataframe
+            # Setup the 3 arrays for creating the dataframe
             for binX in range(binsX+1):
                 for binY in range(binsY+1):
                     f_path_list.append(f_path_th2)
@@ -104,13 +111,13 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
                 
         elif issubclass(type(input),ROOT.TH1):
             
-            #record the path of the directory we are looking in with the name of the hist file as part of the path
+            # Record the path of the directory we are looking in with the name of the hist file as part of the path
             try:
                 f_path_th1 = f_path + '/' + input.GetName()                
             except:
                 print("cant GetPath2")
 
-            #get the part of f_path that follows the ':'
+            # Get the part of f_path that follows the ':'
             f_path_th1 = f_path_th1.split(':')
             f_path_th1 = f_path_th1[1][1:]
             
@@ -118,7 +125,7 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
             hist_file = file.Get(f_path_th1)
             binsX = hist_file.GetNbinsX()            
             
-            #setup the 3 arrays for creating the dataframe
+            # Setup the 3 arrays for creating the dataframe
             for binX in range(binsX+1):                
                 f_path_list.append(f_path_th1)
                 binNum = hist_file.GetBin(binX,0)                
@@ -129,8 +136,14 @@ def processHistML(tf,file,f_path,f_path_list, binNums,binNumsY, occupancies):
     return f_path, f_path_list, binNums,binNumsY, occupancies
 
 
-#CONVERT HIST TO DATAFRAME
 def hist_to_df(path):
+    
+    """
+    
+    Converts ROOT histogram data from ProcessHistML() to a pandas dataframe.
+    
+    """
+    
     file = ROOT.TFile.Open(path)
 
     f_path,f_path_list, binNums,binNumsY, occupancies = processHistML(file,file,'',[],[],[],[])
@@ -138,8 +151,13 @@ def hist_to_df(path):
     return pd.DataFrame({'paths':f_path_list,'x':binNums,'y':binNumsY,'occ':occupancies})
 
 
-#ADD ANOTHER HIST TO DATAFRAME
 def select_add_hist(df,choice):
+    
+    """
+    
+    Tries to add another histogram to the df_train dataframe. If df_train does not exist, then it initializes the df_train dataframe with the histogram of choice.
+    
+    """
     
     try:
         df_train = pd.concat([df_train,df[df['paths']==df['paths'].unique()[choice]]])
@@ -156,51 +174,66 @@ def select_add_hist(df,choice):
 ############################
 
 
-#UNSUPERVISED LEARNING
+# UNSUPERVISED LEARNING
+
 def train_ae(df):
+    
+    """
+    
+    Auto Encoder Neural Network via pyod to be trained with the histogram dataframe generated from hist_to_df().
+    
+    """
     
     Z = df[['x','occ']]
 
-    #set parameters
+    # Set parameters
     outliers_fraction = 0.05 #outliers_fraction = 0.003
 
-    #train the ML algorithm
+    # Train the ML algorithm
     clf = AutoEncoder(hidden_neurons =[3,2,1,2,3], contamination = outliers_fraction, epochs=500)
     clf.fit(Z)
     predictions = clf.labels_  # binary labels (0: inliers, 1: outliers)
     scores = clf.decision_scores_  # raw outlier scores
-    #########################
+    
+    # Remove the previously identified outlier column from this dataframe if it was constructed previously using this function.
     try:
         df = df.drop('outlier',1)
     except:
-        print("")
+        pass
 
-    #########################
+    # Construct the outlier column based on the predictions determined by the AutoEncoder
     df['outlier'] = predictions
-    #########################
+    
+    # Construct the color array based on the outlier values in the outlier column of the dataframe
     color = np.where(df['outlier'] == 1, 'red', 'black')
-    #########################
+    
+    # Return the model, predictions, outlier scores, and outlier colors
     return clf, predictions, scores,color
 
 
-# def process_ae_TH1(df_train,choice):
-    """
-    df is a dataframe
-    choice is a number from 1 to len(df['paths'].values)
+def process_ae_TH1(df_train,choice):
+    
     """
     
-    #select the histogram of choice
-    #df_train = df[df['paths']==df['paths'].unique()[choice]]
-    #what histogram are we working on?
-    print(f"Histogram in training:{df_train['paths'].values[0]}")
+    df is a dataframe.
+    choice is a number from 1 to len(df['paths'].values).
     
-    #train and prepare the auto encoder
+    """
+    
+    # Select the histogram of interest as choice
+    df_train = df[df['paths']==df['paths'].unique()[choice]]
+    
+    # Display what histogram we are training
+    print(f"Histogram in training:{df_train['paths'].values[choice]}")
+    
+    # Generate the information of interest form the ae() function
     c,p,s,color = ae(df_train)
     
-    #get a standard plot of the histograms distribution value
+    # Get a standard plot of the histograms distribution value
+    plt.figure(figsize=(10,10)
     df_train.plot.scatter('x','occ')
     
-    #produce a plot of the auto encoders outlier values labelled in red
+    # Produce a plot of the auto encoders outlier values labelled in red
     fig = plt.figure(figsize=(10,10))
     plt.scatter(df_train['x'], df_train['occ'], c=color, s=60)
     plt.xlabel('eta')
