@@ -1,6 +1,8 @@
 def what_replicas_to_request(input_filename, stream)    :
     """
     
+    !IMPORTANT - THIS FUNCTION REQUIRES UPDATE TO MATCH proc function below!
+    
     Rucio requests take a specific format. This takes the lines we processed previously in postprocessed_hist_file() and turns the lines into the individual requests needed from rucio
     with their appropriate format.
     
@@ -31,9 +33,6 @@ def what_replicas_to_request(input_filename, stream)    :
     
         reqs = []
         
-        # Initialize the variable that will tell us how many requests we have in total    
-        cnt=0
-        
         # Read through each line of the file
         for line in f.readlines():
             
@@ -43,9 +42,6 @@ def what_replicas_to_request(input_filename, stream)    :
             
             # If this line contains run in it, it must be a 'run-line'
             if 'run' in line:
-                
-                # Update the number of requests we will have to make
-                cnt+=1
                 
                 # So get a handle for the different pieces of this run-line
                 line = line.split(' ')
@@ -67,7 +63,7 @@ def what_replicas_to_request(input_filename, stream)    :
 
                 
         # Display the number of requests we will have to make
-        print(f'Number of Requests: {cnt}')
+        print(f'Number of Requests: {len(set(reqs})')
         return set(reqs)
 
 def proc_what_replicas_to_request(input_filename, stream):
@@ -119,9 +115,6 @@ def proc_what_replicas_to_request(input_filename, stream):
         
         reqs = []
     
-        # Initialize the variable that will tell us how many requests we have in total    
-        cnt=0
-        
         # Read through each line of the file
         for line in f.readlines():
             
@@ -142,16 +135,15 @@ def proc_what_replicas_to_request(input_filename, stream):
                 
             if 'run' in line:
                 
-                cnt+=1
-                
                 run = line.split('/')[0].split('_')[1]
                 
                 reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
             
                 
         # Display the number of requests we will have to make
-        print(f'Number of Requests: {cnt}')
+        
         reqs = set(reqs)
+        print(f'Number of Requests: {len((reqs))}')
         
         with open(input_filename.split('/')[-1].replace('.txt','')+'_preprocessed.txt', "w") as txt_file:
             for line in list(reqs):
