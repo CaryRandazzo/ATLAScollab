@@ -74,6 +74,11 @@ def proc_what_replicas_to_request(input_filename, stream):
     
     """
     
+    What happens when this function is executed?:
+        This function will create an output file using input_filename where input_filename has had all the leading path string information stripped such that all
+        will be left will be of a format similar to the following:  output_filename = redhists2_preprocessed.txt and the file will be sent to the same directory the 
+        notebook is in. Read further to determine the EXAMPLE OUTPUT inside the output file.
+        
     This takes a hand made text file and stream string in as input. Line by line it is formatted as either 
     1. a blank line
     2. a line that includes the  "<ftag> <energy>" or "<ftag>" and energy will be assumed to be 'data18_13TeV'
@@ -142,12 +147,16 @@ def proc_what_replicas_to_request(input_filename, stream):
                 run = line.split('/')[0].split('_')[1]
                 
                 reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
-#                 print(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")                
             
                 
         # Display the number of requests we will have to make
         print(f'Number of Requests: {cnt}')
-        return set(reqs)
+        reqs = set(reqs)
+        
+        with open(input_filename.split('/')[-1].replace('.txt','')+'_preprocessed.txt', "w") as txt_file:
+            for line in list(reqs):
+                txt_file.write(line + "\n")
+        
 
 def proc_rucDL_text(filename):
   
