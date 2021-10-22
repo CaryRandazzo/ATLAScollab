@@ -59,7 +59,11 @@ def what_replicas_to_request(input_filename, stream)    :
                     energy = 'data18_hi'
                     
                 # Print the appropriate request format depending on the energy type
-                reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
+                if '/1' in ftag or '/2' in ftag or '/3' in ftag or '/4' in ftag:
+                    print('ftags with /# are not able to be requested from rucio? Dont get these! --->',ftag)
+                    continue
+                else:
+                    reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
 
                 
         # Display the number of requests we will have to make
@@ -137,7 +141,11 @@ def proc_what_replicas_to_request(input_filename, stream):
                 
                 run = line.split('/')[0].split('_')[1]
                 
-                reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
+                if '/1' in ftag or '/2' in ftag or '/3' in ftag or '/4' in ftag:
+                    print('ftags with /# are not able to be requested from rucio? Dont get these! --->',ftag)
+                    continue
+                else:
+                    reqs.append(f"{energy}:{energy}.00{run.replace('/','').replace('run_','')}.{stream}.merge.HIST.{ftag}")
             
                 
         # Display the number of requests we will have to make
