@@ -153,6 +153,7 @@ def proc_what_replicas_to_request(input_filename, stream):
         reqs = set(reqs)
         print(f'Number of Requests: {len((reqs))}')
         
+        # Create the output file with _preprocessed at the end of the name and write the lines from reqs to the file                                 
         with open(input_filename.split('/')[-1].replace('.txt','')+'_preprocessed.txt', "w") as txt_file:
             for line in list(reqs):
                 txt_file.write(line + "\n")
@@ -170,8 +171,12 @@ def proc_rucDL_text(filename):
         # here, position is initially at the beginning
         text = f.read()
         # now its at the end of this file
-    with open(filename+"_processed",'w') as f:
+    with open(filename.replace('.txt','').replace('_preprocessed','')+"_processed.txt",'w') as f:
         for line in text.split('\n'):
+            
+            # This ignores the ending blank line in the _preprocessed.txt file
+            if line=='':
+                continue
+            
+            # Write the line to the output file with the 'rucio download' command added                             
             f.write('rucio download '+ line + '\n')
-
-    return
