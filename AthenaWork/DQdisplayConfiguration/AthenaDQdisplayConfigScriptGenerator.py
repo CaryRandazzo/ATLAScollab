@@ -129,15 +129,15 @@ def doit_output(dict_,path_list,key,f,alg_out,start_set):
             # If we have not yet written the starting lines of code to the script, do so now
             if start_set == False:
                 f.write('#############\n# Output\n#############\n\n')
-                f.write(f'output top_level{"{"}\n')
-                f.write(f'{tab}output {path_list[-1]}{"{"}\n')
+                f.write(f'output top_level{" {"}\n')
+                f.write(f'{tab}output {path_list[-1]}{" {"}\n')
                 f.write(f'{tab*2}algorithm = {alg_out}\n\n')
 
                 start_set = True
             # This is not the start of the file, therefore start_set is True and it it some directory further in the file structure
             else:
                 # Write the code for opening the directory at path_list[-1]
-                f.write(f'{tab*(len(path_list))}output {path_list[-1]}{"{"}\n')
+                f.write(f'{tab*(len(path_list))}output {path_list[-1]}{" {"}\n')
 
             # Recursively go deeper into the file structure, storing data on the key, path_list, and if the starting output has been set
             key, path_list,start_set = doit_output(dict_[key],path_list,key,f,alg_out,start_set)
@@ -195,14 +195,14 @@ def doit(dict_,path_list,key,f,alg_in,hist_algorithm,display, reference, start_s
             # If we have not yet written the starting lines of code to the script, do so now
             if start_set == False:
                 f.write('######################\n# Histogram Assessment\n######################\n\n')
-                f.write(f'dir {path_list[-1]}{"{"}\n')
+                f.write(f'dir {path_list[-1]}{" {"}\n')
                 f.write(f'{tab}algorithm = {alg_in}\n')
                 f.write(f'{tab}reference = {reference}\n\n')
                 start_set = True
             # This is not the start of the file, therefore start_set is True and it it some directory further in the file structure
             else:
                 # Write the code for opening the directory at path_list[-1]
-                f.write(f'{tab*(len(path_list)-1)}dir {path_list[-1]}{"{"}\n')
+                f.write(f'{tab*(len(path_list)-1)}dir {path_list[-1]}{" {"}\n')
 
             # Recursively go deeper into the file structure, storing data on the key, path_list, and if the starting output has been set
             key, path_list,start_set = doit(dict_[key],path_list,key,f,alg_in,hist_algorithm,display, reference, start_set)
@@ -235,7 +235,7 @@ def doit(dict_,path_list,key,f,alg_in,hist_algorithm,display, reference, start_s
                 output_set = True
 
             # Write the code for each histogram to the output file
-            f.write(f'{tab*(len(path_list))}hist = {key}{"{"}\n')
+            f.write(f'{tab*(len(path_list))}hist {key}{" {"}\n')
             f.write(f'{tab*(len(path_list)+1)}algorithm = {hist_algorithm}\n')
             f.write(f'{tab*(len(path_list)+1)}display = {display}\n')
             f.write(f'{tab*(len(path_list))}{"}"}\n')
