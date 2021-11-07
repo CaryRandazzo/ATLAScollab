@@ -481,6 +481,10 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
                         hists_of_interest = df[df['paths']==paths_in_df[idP2]]
 
         try:
+            # If the database is not located in the current directory, it will have a pathname instead of db name
+            # Detect this and define tmp as the temporary actual db_name so the csv can properly be constructed
+            if len(db_name.split('/'))>1:
+                tmp = db_name.split('/')[-1]
             # Construct the backup file for this table as .csv
             hists_of_interest.to_csv(f'{backup_output_dir}{db_name.replace(".","_")}${table}$backup.csv')
         except Exception as e:
