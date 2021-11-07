@@ -400,6 +400,11 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
     
     If recreating the database, delete the .db file. dont simply rerun this function.
     
+    WARNING:
+        The stream type must be in the hist_of_interest_txt file name to pick up the proper stream metadata and properly construct dict_of_arrs - failure to do this
+        will result in hists not being attached to the proper table and tables failing to be built. In each hist_of_interest txt file, name should look something like
+        the following(in addition to the contents of the file being properly formatted): 'express_etcinfo' or 'pMain_etcinfo'.
+    
     NOTE ON MEMORY CONSTRAINTS:
         As part of this function, it uses dict_of_dfs_and_tables() to construct a needed parameter. This parameter constructs a large dictionary of potentially many dataframes of runs - 
         So many in fact, that it may crash the system as it is holding all these runs/dataframes in memory while it is building the database out. 
