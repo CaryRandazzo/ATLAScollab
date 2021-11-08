@@ -502,7 +502,7 @@ def build_sql_database(db_name, dict_of_dfs_and_tables, paths_txt_file_directory
             print(f'error sending hists_of_interest to sql database for table({table}) - Table Empty.\n {e}')
 
         # How far along in the process of preparing the hists_of_interests for this table for this batch of runs? - Also, notify that the table succesfully made it to the database
-        print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table exists and has been saved to database.")
+        print(f"Table #{idT+1} of {len(dict_of_dfs_and_tables.keys())}, {table}, Table processing complete. Refer to any error messages to determine if table was processed properly.")
         
         try:
             # Clear the hists_of_interests variable for the next table - we do not want the hists_of_interest from two different tables mixing
