@@ -1,7 +1,11 @@
-# DQ/ML
+# ATLAS_DQ&ML_Tools
+The files contained in this directory include:
+- The data prep that was used in construction of the Masters Thesis, given in jupyter notebook format, step by step.
 
-# Athena work 
-- Includes generator script used to generate DQdisplay configuration files
+# Athena work
+The files contained in this directory include:
+- A generator script used to generate DQdisplay configuration files
 
 # AtlasNet (not currently up to date)
-- Includes files that are regularly updated to reflect the Machine Learning project in partial fulfillment of Masters of Science in Applied Physics.
+The files contained in this directory include:
+- Files that reflect the Machine Learning project used in the Masters Thesis
