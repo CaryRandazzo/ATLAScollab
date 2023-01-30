@@ -1,3 +1,5 @@
+Notice: Information is currently in the process of an update. The most recent information will be available in the near future.
+
 # ATLAS_DQ&ML_Tools
 The files contained in this directory include:
 - The data prep that was used in construction of the Masters Thesis, given in jupyter notebook format, step by step.
