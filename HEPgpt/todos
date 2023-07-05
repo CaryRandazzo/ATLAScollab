@@ -1,0 +1,12 @@
+UPDATE PRIORITIES / TODOs:
+
+-update installation script..some stuff out of order
+
+-programatically get present working directly and apply to all paths
+
+-handle situations where data="" like the issue came up
+
+-auto_restart needed some change or update. (present working dir again)
+
+-the cronjob notes in auto_restart actualy need to be for my conda nim env
+0 */6 * * * /path/to/conda/envs/bin/nim /path/to/HEPgpt/auto_restart.nim
